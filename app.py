@@ -122,9 +122,7 @@ if num_op != "":
 
 st.markdown("---")
 
-# --- BOTÓN LIMPIAR PARCIALES ---
-st.button("🧹 Limpiar Solo Parciales", on_click=solicitar_limpieza, type="secondary")
-
+# --- LÓGICA DE LIMPIEZA ---
 if st.session_state.get("necesita_limpieza", False):
     for i in range(10):
         st.session_state[f"turno_{i}"] = ""
@@ -135,6 +133,15 @@ if st.session_state.get("necesita_limpieza", False):
         st.session_state[f"scrap_{i}"] = 0.0
         st.session_state[f"cant_{i}"] = 0
     st.session_state["necesita_limpieza"] = False
+
+# --- BOTONES DE ACCIÓN LADO A LADO ---
+col_btn1, col_btn2, _ = st.columns([1.5, 2.0, 3.0])
+
+with col_btn1:
+    st.button("🧹 Limpiar Solo Parciales", on_click=solicitar_limpieza, type="secondary")
+
+with col_btn2:
+    mostrar_etiqueta = st.button("🏷️ Generar Etiqueta ÚLTIMO Parcial", type="secondary")
 
 def actualizar_fecha_fila(indice, fecha_base_op):
     f_ingresada = st.session_state[f"fecha_input_{indice}"]
@@ -230,6 +237,47 @@ for i in range(10):
         "Scrap_P": scrap_p,
         "Cantidad": cant
     })
+
+# --- MOSTRAR RECUADRO DE ETIQUETA SI SE HIZO CLIC EN EL BOTÓN ---
+if mostrar_etiqueta:
+    ultimos_validos = [p for p in parciales_cargados if p["Turno"] != ""]
+    
+    if ultimos_validos:
+        ultimo_p = ultimos_validos[-1]
+        
+        st.markdown("---")
+        st.subheader("🖨️ Recuadro de Rotulado / Etiqueta de Impresión")
+        
+        st.markdown(
+            f"""
+            <div style="
+                border: 3px solid #1f77b4;
+                border-radius: 10px;
+                padding: 20px;
+                background-color: #f0f2f6;
+                color: #111111;
+                width: 100%;
+                max-width: 500px;
+                font-family: Arial, sans-serif;
+                box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+            ">
+                <h3 style="margin-top:0; color:#1f77b4; text-align:center; border-bottom: 2px solid #1f77b4; padding-bottom: 5px;">
+                    ETIQUETA DE PRODUCCIÓN ({ultimo_p['Parcial']})
+                </h3>
+                <p style="font-size: 16px; margin: 8px 0;"><b>CLIENTE:</b> {cliente}</p>
+                <p style="font-size: 16px; margin: 8px 0;"><b>PRODUCTO:</b> {producto}</p>
+                <p style="font-size: 20px; margin: 12px 0; color: #d9534f;"><b>LOTE:</b> {ultimo_p['Lote'] if ultimo_p['Lote'] else 'SIN LOTE'}</p>
+                <p style="font-size: 20px; margin: 12px 0; color: #28a745;"><b>VTO:</b> {ultimo_p['VTO']}</p>
+                <hr style="border: 0.5px solid #ccc;">
+                <p style="font-size: 12px; color: #555; text-align: right; margin-bottom:0;">
+                    Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Turno: {ultimo_p['Turno']}
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("⚠️ No hay ningún parcial cargado con la celda 'Turno' completa para generar la etiqueta.")
 
 # --- RESUMEN Y TOTALES ---
 st.markdown("---")
