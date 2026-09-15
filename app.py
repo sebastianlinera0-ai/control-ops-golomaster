@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 import json
 from datetime import datetime, date
+from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
 from streamlit_local_storage import LocalStorage
 
@@ -295,6 +296,10 @@ if mostrar_etiqueta:
     if ultimos_validos:
         ultimo_p = ultimos_validos[-1]
         
+        # Fecha y Hora local exacta de Argentina
+        hora_arg = datetime.now(ZoneInfo("America/Buenos_Aires")).strftime('%d/%m/%Y %H:%M')
+        texto_op = f"OP: {num_op}" if num_op else "OP: N/A"
+
         html_impresion = f"""
         <!DOCTYPE html>
         <html>
@@ -334,11 +339,18 @@ if mostrar_etiqueta:
                     font-size: 20px;
                     color: #28a745;
                 }}
-                .pie {{
+                .pie-container {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-top: 15px;
                     font-size: 11px;
                     color: #555555;
-                    text-align: right;
-                    margin-top: 15px;
+                }}
+                .op-num {{
+                    font-size: 12px;
+                    font-weight: bold;
+                    color: #333333;
                 }}
                 .btn-reimprimir {{
                     background-color: #28a745;
@@ -367,7 +379,10 @@ if mostrar_etiqueta:
                 <p class="lote"><b>LOTE:</b> {ultimo_p['Lote'] if ultimo_p['Lote'] else 'SIN LOTE'}</p>
                 <p class="vto"><b>VTO:</b> {ultimo_p['VTO']}</p>
                 <hr style="border: 0.5px solid #ccc;">
-                <p class="pie">Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Turno: {ultimo_p['Turno']}</p>
+                <div class="pie-container">
+                    <span class="op-num">{texto_op}</span>
+                    <span>Generado: {hora_arg} | Turno: {ultimo_p['Turno']}</span>
+                </div>
             </div>
             <script>
                 window.onload = function() {{
@@ -399,6 +414,7 @@ with col_cerrar:
         if num_op == "":
             st.warning("⚠️ Ingresa un N° de OP válido antes de cerrar.")
         else:
+            fecha_cierre_arg = datetime.now(ZoneInfo("America/Buenos_Aires")).strftime("%d/%m/%Y %H:%M")
             datos_encabezado = {
                 "OP_Num": num_op,
                 "Fecha_OP": fecha_op.strftime("%d/%m/%Y"),
@@ -407,7 +423,7 @@ with col_cerrar:
                 "Cant_Total_OP": cant_total,
                 "Total_Producido": tot_producido,
                 "Saldo_Restante": restan,
-                "Fecha_Cierre": datetime.now().strftime("%d/%m/%Y %H:%M")
+                "Fecha_Cierre": fecha_cierre_arg
             }
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
