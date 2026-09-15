@@ -57,12 +57,38 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
 def solicitar_limpieza():
     st.session_state["necesita_limpieza"] = True
 
-# --- DICCIONARIO DE CLIENTES Y VIDA ÚTIL (MESES) ---
+# --- DICCIONARIO DE CLIENTES, VIDA ÚTIL Y PRODUCTOS ---
 CLIENTES_VIDA_UTIL = {
     "INTEGRA": 7,
     "ENA": 12,
     "DELUXE": 12,
     "GARRAPIÑADA": 8
+}
+
+PRODUCTOS_POR_CLIENTE = {
+    "INTEGRA": [
+        "BARRAS DE CACAO SABOR MANI",
+        "BARRAS DE CACAO SABOR AVELLANA",
+        "BARRAS DE CACAO SABOR COCO",
+        "BARRAS DE CACAO CON CHOCOLATE",
+        "BARRAS DE CACAO SABOR BANANA"
+    ],
+    "ENA": [
+        "BARRA SABOR BANANA CM",
+        "BARRA SABOR BANANA CT",
+        "BARRA SABOR FRUTILLA CM",
+        "BARRA SABOR FRUTILLA CT",
+        "BARRA SABOR BROWNIE CM",
+        "BARRA SABOR BROWNIE CT",
+        "BARRA SABOR COCO CT",
+        "SABOR COCO CM"
+    ],
+    "DELUXE": [
+        "PRODUCTO DELUXE GENERAL"
+    ],
+    "GARRAPIÑADA": [
+        "GARRAPIÑADA GENERAL"
+    ]
 }
 
 LISTA_RESPONSABLES = ["", "Carlos", "Victor", "Guille", "Lujan", "Sebastian"]
@@ -77,7 +103,10 @@ with col1:
 
 with col2:
     cliente = st.selectbox("CLIENTE", list(CLIENTES_VIDA_UTIL.keys()), index=0, key="cliente_select")
-    producto = st.text_input("PRODUCTO", value="AVELLANA", key="producto")
+    
+    # Lista desplegable dinámica de productos según el cliente seleccionado
+    lista_productos = PRODUCTOS_POR_CLIENTE.get(cliente, ["OTROS"])
+    producto = st.selectbox("PRODUCTO", lista_productos, key="producto_select")
 
 vida_util_meses = CLIENTES_VIDA_UTIL[cliente]
 
