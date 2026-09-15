@@ -238,7 +238,7 @@ for i in range(10):
         "Cantidad": cant
     })
 
-# --- MOSTRAR RECUADRO DE ETIQUETA SI SE HIZO CLIC EN EL BOTÓN ---
+# --- MOSTRAR RECUADRO DE ETIQUETA E IMPRESIÓN ---
 if mostrar_etiqueta:
     ultimos_validos = [p for p in parciales_cargados if p["Turno"] != ""]
     
@@ -248,30 +248,74 @@ if mostrar_etiqueta:
         st.markdown("---")
         st.subheader("🖨️ Recuadro de Rotulado / Etiqueta de Impresión")
         
+        # CSS de impresión: oculta el resto de la aplicación y solo imprime el div #seccion-impresion
+        st.markdown(
+            """
+            <style>
+            @media print {
+                body * {
+                    visibility: hidden !important;
+                }
+                #seccion-impresion, #seccion-impresion * {
+                    visibility: visible !important;
+                }
+                #seccion-impresion {
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                }
+                .btn-imprimir {
+                    display: none !important;
+                }
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
         st.markdown(
             f"""
-            <div style="
-                border: 3px solid #1f77b4;
-                border-radius: 10px;
-                padding: 20px;
-                background-color: #f0f2f6;
-                color: #111111;
-                width: 100%;
-                max-width: 500px;
-                font-family: Arial, sans-serif;
-                box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-            ">
-                <h3 style="margin-top:0; color:#1f77b4; text-align:center; border-bottom: 2px solid #1f77b4; padding-bottom: 5px;">
-                    ETIQUETA DE PRODUCCIÓN ({ultimo_p['Parcial']})
-                </h3>
-                <p style="font-size: 16px; margin: 8px 0;"><b>CLIENTE:</b> {cliente}</p>
-                <p style="font-size: 16px; margin: 8px 0;"><b>PRODUCTO:</b> {producto}</p>
-                <p style="font-size: 20px; margin: 12px 0; color: #d9534f;"><b>LOTE:</b> {ultimo_p['Lote'] if ultimo_p['Lote'] else 'SIN LOTE'}</p>
-                <p style="font-size: 20px; margin: 12px 0; color: #28a745;"><b>VTO:</b> {ultimo_p['VTO']}</p>
-                <hr style="border: 0.5px solid #ccc;">
-                <p style="font-size: 12px; color: #555; text-align: right; margin-bottom:0;">
-                    Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Turno: {ultimo_p['Turno']}
-                </p>
+            <div id="seccion-impresion">
+                <button class="btn-imprimir" onclick="window.print()" style="
+                    background-color: #28a745;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin-bottom: 15px;
+                    display: block;
+                ">
+                    🖨️ IMPRIMIR ETIQUETA
+                </button>
+                <div style="
+                    border: 3px solid #1f77b4;
+                    border-radius: 10px;
+                    padding: 20px;
+                    background-color: #ffffff;
+                    color: #111111;
+                    width: 100%;
+                    max-width: 480px;
+                    font-family: Arial, sans-serif;
+                    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
+                ">
+                    <h3 style="margin-top:0; color:#1f77b4; text-align:center; border-bottom: 2px solid #1f77b4; padding-bottom: 5px;">
+                        ETIQUETA DE PRODUCCIÓN ({ultimo_p['Parcial']})
+                    </h3>
+                    <p style="font-size: 16px; margin: 8px 0;"><b>CLIENTE:</b> {cliente}</p>
+                    <p style="font-size: 16px; margin: 8px 0;"><b>PRODUCTO:</b> {producto}</p>
+                    <p style="font-size: 20px; margin: 12px 0; color: #d9534f;"><b>LOTE:</b> {ultimo_p['Lote'] if ultimo_p['Lote'] else 'SIN LOTE'}</p>
+                    <p style="font-size: 20px; margin: 12px 0; color: #28a745;"><b>VTO:</b> {ultimo_p['VTO']}</p>
+                    <hr style="border: 0.5px solid #ccc;">
+                    <p style="font-size: 12px; color: #555; text-align: right; margin-bottom:0;">
+                        Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Turno: {ultimo_p['Turno']}
+                    </p>
+                </div>
             </div>
             """,
             unsafe_allow_html=True
