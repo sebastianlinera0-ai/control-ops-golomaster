@@ -3,8 +3,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import requests
 import json
-from datetime import datetime, date
-from zoneinfo import ZoneInfo
+from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 from streamlit_local_storage import LocalStorage
 
@@ -19,6 +18,10 @@ st.title("📋 Control de órdenes de producción Golomaster V1")
 # --- CONEXIÓN CON GOOGLE SHEETS / APPS SCRIPT ---
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/export?format=csv"
+
+# Función para obtener hora de Argentina (UTC-3) sin fallar
+def obtener_ahora_arg():
+    return datetime.utcnow() - timedelta(hours=3)
 
 def cargar_historial():
     try:
@@ -296,8 +299,8 @@ if mostrar_etiqueta:
     if ultimos_validos:
         ultimo_p = ultimos_validos[-1]
         
-        # Fecha y Hora local exacta de Argentina
-        hora_arg = datetime.now(ZoneInfo("America/Buenos_Aires")).strftime('%d/%m/%Y %H:%M')
+        # Fecha y Hora local exacta de Argentina (UTC-3)
+        hora_arg = obtener_ahora_arg().strftime('%d/%m/%Y %H:%M')
         texto_op = f"OP: {num_op}" if num_op else "OP: N/A"
 
         html_impresion = f"""
@@ -414,7 +417,7 @@ with col_cerrar:
         if num_op == "":
             st.warning("⚠️ Ingresa un N° de OP válido antes de cerrar.")
         else:
-            fecha_cierre_arg = datetime.now(ZoneInfo("America/Buenos_Aires")).strftime("%d/%m/%Y %H:%M")
+            fecha_cierre_arg = obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
             datos_encabezado = {
                 "OP_Num": num_op,
                 "Fecha_OP": fecha_op.strftime("%d/%m/%Y"),
