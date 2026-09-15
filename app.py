@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import requests
 from datetime import datetime, date
@@ -104,7 +105,6 @@ with col1:
 with col2:
     cliente = st.selectbox("CLIENTE", list(CLIENTES_VIDA_UTIL.keys()), index=0, key="cliente_select")
     
-    # Lista desplegable dinámica de productos según el cliente seleccionado
     lista_productos = PRODUCTOS_POR_CLIENTE.get(cliente, ["OTROS"])
     producto = st.selectbox("PRODUCTO", lista_productos, key="producto_select")
 
@@ -238,88 +238,99 @@ for i in range(10):
         "Cantidad": cant
     })
 
-# --- MOSTRAR RECUADRO DE ETIQUETA E IMPRESIÓN ---
+# --- LÓGICA DE GENERACIÓN DIRECTA DE IMPRESIÓN ---
 if mostrar_etiqueta:
     ultimos_validos = [p for p in parciales_cargados if p["Turno"] != ""]
     
     if ultimos_validos:
         ultimo_p = ultimos_validos[-1]
         
-        st.markdown("---")
-        st.subheader("🖨️ Recuadro de Rotulado / Etiqueta de Impresión")
-        
-        # CSS de impresión: oculta el resto de la aplicación y solo imprime el div #seccion-impresion
-        st.markdown(
-            """
+        # HTML + JS autocontenido que dispara la ventana de impresión directamente
+        html_impresion = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
             <style>
-            @media print {
-                body * {
-                    visibility: hidden !important;
-                }
-                #seccion-impresion, #seccion-impresion * {
-                    visibility: visible !important;
-                }
-                #seccion-impresion {
-                    position: absolute !important;
-                    left: 0 !important;
-                    top: 0 !important;
-                    width: 100% !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                }
-                .btn-imprimir {
-                    display: none !important;
-                }
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
-            f"""
-            <div id="seccion-impresion">
-                <button class="btn-imprimir" onclick="window.print()" style="
-                    background-color: #28a745;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    font-size: 16px;
-                    font-weight: bold;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    margin-bottom: 15px;
-                    display: block;
-                ">
-                    🖨️ IMPRIMIR ETIQUETA
-                </button>
-                <div style="
+                body {{
+                    font-family: Arial, sans-serif;
+                    margin: 0;
+                    padding: 10px;
+                    background-color: #ffffff;
+                }}
+                .etiqueta {{
                     border: 3px solid #1f77b4;
                     border-radius: 10px;
                     padding: 20px;
+                    width: 420px;
                     background-color: #ffffff;
                     color: #111111;
-                    width: 100%;
-                    max-width: 480px;
-                    font-family: Arial, sans-serif;
-                    box-shadow: 2px 2px 10px rgba(0,0,0,0.1);
-                ">
-                    <h3 style="margin-top:0; color:#1f77b4; text-align:center; border-bottom: 2px solid #1f77b4; padding-bottom: 5px;">
-                        ETIQUETA DE PRODUCCIÓN ({ultimo_p['Parcial']})
-                    </h3>
-                    <p style="font-size: 16px; margin: 8px 0;"><b>CLIENTE:</b> {cliente}</p>
-                    <p style="font-size: 16px; margin: 8px 0;"><b>PRODUCTO:</b> {producto}</p>
-                    <p style="font-size: 20px; margin: 12px 0; color: #d9534f;"><b>LOTE:</b> {ultimo_p['Lote'] if ultimo_p['Lote'] else 'SIN LOTE'}</p>
-                    <p style="font-size: 20px; margin: 12px 0; color: #28a745;"><b>VTO:</b> {ultimo_p['VTO']}</p>
-                    <hr style="border: 0.5px solid #ccc;">
-                    <p style="font-size: 12px; color: #555; text-align: right; margin-bottom:0;">
-                        Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Turno: {ultimo_p['Turno']}
-                    </p>
-                </div>
+                    box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+                }}
+                .titulo {{
+                    margin-top: 0;
+                    color: #1f77b4;
+                    text-align: center;
+                    border-bottom: 2px solid #1f77b4;
+                    padding-bottom: 5px;
+                    font-size: 18px;
+                }}
+                p {{
+                    margin: 8px 0;
+                }}
+                .lote {{
+                    font-size: 20px;
+                    color: #d9534f;
+                }}
+                .vto {{
+                    font-size: 20px;
+                    color: #28a745;
+                }}
+                .pie {{
+                    font-size: 11px;
+                    color: #555555;
+                    text-align: right;
+                    margin-top: 15px;
+                }}
+                .btn-reimprimir {{
+                    background-color: #28a745;
+                    color: white;
+                    border: none;
+                    padding: 8px 15px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin-bottom: 10px;
+                }}
+                @media print {{
+                    .btn-reimprimir {{
+                        display: none !important;
+                    }}
+                }}
+            </style>
+        </head>
+        <body>
+            <button class="btn-reimprimir" onclick="window.print()">🖨️ Re-abrir Impresión</button>
+            <div class="etiqueta">
+                <h3 class="titulo">ETIQUETA DE PRODUCCIÓN ({ultimo_p['Parcial']})</h3>
+                <p><b>CLIENTE:</b> {cliente}</p>
+                <p><b>PRODUCTO:</b> {producto}</p>
+                <p class="lote"><b>LOTE:</b> {ultimo_p['Lote'] if ultimo_p['Lote'] else 'SIN LOTE'}</p>
+                <p class="vto"><b>VTO:</b> {ultimo_p['VTO']}</p>
+                <hr style="border: 0.5px solid #ccc;">
+                <p class="pie">Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Turno: {ultimo_p['Turno']}</p>
             </div>
-            """,
-            unsafe_allow_html=True
-        )
+            <script>
+                // Abre el diálogo de impresión automáticamente al renderizar
+                window.onload = function() {{
+                    window.print();
+                }};
+            </script>
+        </body>
+        </html>
+        """
+        # Renderizamos el iframe aislado
+        components.html(html_impresion, height=350)
     else:
         st.warning("⚠️ No hay ningún parcial cargado con la celda 'Turno' completa para generar la etiqueta.")
 
