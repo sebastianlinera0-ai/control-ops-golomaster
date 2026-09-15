@@ -2,13 +2,18 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 import requests
+import json
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
+from streamlit_local_storage import LocalStorage
 
 # Configuración de página
 st.set_page_config(page_title="Control de órdenes de producción Golomaster V1", layout="wide")
 
-st.title("📋 Control de órdenes de producción GV1")
+# Instancia de almacenamiento local
+localS = LocalStorage()
+
+st.title("📋 Control de órdenes de producción Golomaster V1")
 
 # --- CONEXIÓN CON GOOGLE SHEETS / APPS SCRIPT ---
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
@@ -57,6 +62,10 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
 
 def solicitar_limpieza():
     st.session_state["necesita_limpieza"] = True
+    try:
+        localS.deleteItem("borrador_golomaster")
+    except Exception:
+        pass
 
 # --- DICCIONARIO DE CLIENTES, VIDA ÚTIL Y PRODUCTOS ---
 CLIENTES_VIDA_UTIL = {
@@ -94,17 +103,35 @@ PRODUCTOS_POR_CLIENTE = {
 
 LISTA_RESPONSABLES = ["", "Carlos", "Victor", "Guille", "Lujan", "Sebastian"]
 
+# --- RECUPERACIÓN DE BORRADOR DESDE LOCAL STORAGE ---
+if "borrador_cargado" not in st.session_state:
+    borrador = localS.getItem("borrador_golomaster")
+    if borrador:
+        try:
+            datos_recuperados = json.loads(borrador) if isinstance(borrador, str) else borrador
+            for k, v in datos_recuperados.items():
+                if "fecha" in k and isinstance(v, str):
+                    try:
+                        st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
+                    except Exception:
+                        st.session_state[k] = v
+                else:
+                    st.session_state[k] = v
+            st.toast("🛡️ **Borrador de seguridad recuperado automáticamente.**", icon="💾")
+        except Exception:
+            pass
+    st.session_state["borrador_cargado"] = True
+
 # --- ENCABEZADO DE LA OP ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    fecha_op = st.date_input("FECHA DE LA OP", value=date.today(), key="fecha_op")
-    num_op = st.text_input("OP N°", value="", key="num_op").strip()
-    cant_total = st.number_input("Cantidad Total a Producir", value=87000, step=1000, key="cant_total")
+    fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", date.today()), key="fecha_op")
+    num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
+    cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 87000), step=1000, key="cant_total")
 
 with col2:
     cliente = st.selectbox("CLIENTE", list(CLIENTES_VIDA_UTIL.keys()), index=0, key="cliente_select")
-    
     lista_productos = PRODUCTOS_POR_CLIENTE.get(cliente, ["OTROS"])
     producto = st.selectbox("PRODUCTO", lista_productos, key="producto_select")
 
@@ -134,7 +161,7 @@ if st.session_state.get("necesita_limpieza", False):
         st.session_state[f"cant_{i}"] = 0
     st.session_state["necesita_limpieza"] = False
 
-# --- BOTONES DE ACCIÓN LADO A LADO ---
+# --- BOTONES DE ACCIÓN ---
 col_btn1, col_btn2, _ = st.columns([1.5, 2.0, 3.0])
 
 with col_btn1:
@@ -238,6 +265,29 @@ for i in range(10):
         "Cantidad": cant
     })
 
+# --- AUTO-GUARDADO DE SEGURIDAD EN TIEMPO REAL ---
+datos_borrador = {
+    "num_op": num_op,
+    "cant_total": cant_total,
+    "fecha_op": fecha_op.isoformat() if isinstance(fecha_op, date) else str(fecha_op),
+}
+
+for i in range(10):
+    datos_borrador[f"turno_{i}"] = st.session_state.get(f"turno_{i}", "")
+    datos_borrador[f"resp_{i}"] = st.session_state.get(f"resp_{i}", "")
+    datos_borrador[f"lote_{i}"] = st.session_state.get(f"lote_{i}", "")
+    datos_borrador[f"mermas_{i}"] = st.session_state.get(f"mermas_{i}", 0.0)
+    datos_borrador[f"scrap_{i}"] = st.session_state.get(f"scrap_{i}", 0.0)
+    datos_borrador[f"cant_{i}"] = st.session_state.get(f"cant_{i}", 0)
+    
+    f_input = st.session_state.get(f"fecha_input_{i}", fecha_op)
+    datos_borrador[f"fecha_input_{i}"] = f_input.isoformat() if isinstance(f_input, date) else str(f_input)
+
+try:
+    localS.setItem("borrador_golomaster", json.dumps(datos_borrador))
+except Exception:
+    pass
+
 # --- LÓGICA DE GENERACIÓN DIRECTA DE IMPRESIÓN ---
 if mostrar_etiqueta:
     ultimos_validos = [p for p in parciales_cargados if p["Turno"] != ""]
@@ -245,7 +295,6 @@ if mostrar_etiqueta:
     if ultimos_validos:
         ultimo_p = ultimos_validos[-1]
         
-        # HTML + JS autocontenido que dispara la ventana de impresión directamente
         html_impresion = f"""
         <!DOCTYPE html>
         <html>
@@ -321,7 +370,6 @@ if mostrar_etiqueta:
                 <p class="pie">Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')} | Turno: {ultimo_p['Turno']}</p>
             </div>
             <script>
-                // Abre el diálogo de impresión automáticamente al renderizar
                 window.onload = function() {{
                     window.print();
                 }};
@@ -329,7 +377,6 @@ if mostrar_etiqueta:
         </body>
         </html>
         """
-        # Renderizamos el iframe aislado
         components.html(html_impresion, height=350)
     else:
         st.warning("⚠️ No hay ningún parcial cargado con la celda 'Turno' completa para generar la etiqueta.")
@@ -364,6 +411,10 @@ with col_cerrar:
             }
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
+                try:
+                    localS.deleteItem("borrador_golomaster")
+                except Exception:
+                    pass
                 st.session_state["necesita_limpieza"] = True
                 st.success(f"✅ ¡OP N° {num_op} registrada en Google Sheets correctamente!")
                 st.rerun()
