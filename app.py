@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 # Configuración de página
 st.set_page_config(page_title="Control de órdenes de producción Golomaster V1", layout="wide")
 
-st.title("📋 Control de órdenes de producción Golomaster V1")
+st.title("📋 Control de órdenes de producción GV1")
 
 # --- CONEXIÓN CON GOOGLE SHEETS / APPS SCRIPT ---
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
