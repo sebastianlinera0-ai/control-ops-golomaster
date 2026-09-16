@@ -19,9 +19,11 @@ st.title("📋 Control de órdenes de producción Golomaster V1")
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/export?format=csv"
 
-# Función para obtener hora de Argentina (UTC-3)
+# Función para obtener fecha/hora actual de Argentina (UTC-3)
 def obtener_ahora_arg():
     return datetime.utcnow() - timedelta(hours=3)
+
+fecha_actual_hoy = obtener_ahora_arg().date()
 
 def cargar_historial():
     try:
@@ -73,6 +75,7 @@ def solicitar_limpieza():
 
 # --- DICCIONARIO DE CLIENTES, VIDA ÚTIL Y PRODUCTOS ---
 CLIENTES_VIDA_UTIL = {
+    "": 0,
     "INTEGRA": 7,
     "ENA": 12,
     "DELUXE": 12,
@@ -80,7 +83,9 @@ CLIENTES_VIDA_UTIL = {
 }
 
 PRODUCTOS_POR_CLIENTE = {
+    "": [""],
     "INTEGRA": [
+        "",
         "BARRAS DE CACAO SABOR MANI",
         "BARRAS DE CACAO SABOR AVELLANA",
         "BARRAS DE CACAO SABOR COCO",
@@ -88,6 +93,7 @@ PRODUCTOS_POR_CLIENTE = {
         "BARRAS DE CACAO SABOR BANANA"
     ],
     "ENA": [
+        "",
         "BARRA SABOR BANANA CM",
         "BARRA SABOR BANANA CT",
         "BARRA SABOR FRUTILLA CM",
@@ -98,9 +104,11 @@ PRODUCTOS_POR_CLIENTE = {
         "SABOR COCO CM"
     ],
     "DELUXE": [
+        "",
         "PRODUCTO DELUXE GENERAL"
     ],
     "GARRAPIÑADA": [
+        "",
         "GARRAPIÑADA GENERAL"
     ]
 }
@@ -114,45 +122,65 @@ if "borrador_cargado" not in st.session_state:
         try:
             datos_recuperados = json.loads(borrador) if isinstance(borrador, str) else borrador
             for k, v in datos_recuperados.items():
-                if "fecha" in k and isinstance(v, str):
+                if k == "fecha_op":
+                    continue
+                elif "fecha" in k and isinstance(v, str):
                     try:
                         st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
                     except Exception:
                         st.session_state[k] = v
                 else:
                     st.session_state[k] = v
-            st.toast("🛡️ **Borrador de seguridad recuperado automáticamente.**", icon="💾")
+            st.toast("🛡️ **Borrador de seguridad recuperado.**", icon="💾")
         except Exception:
             pass
     st.session_state["borrador_cargado"] = True
 
-# --- ENCABEZADO DE LA OP ---
-fecha_actual_hoy = obtener_ahora_arg().date()
+# --- LÓGICA DE RESET COMPLETO DE FORMULARIO ---
+if st.session_state.get("necesita_limpieza", False):
+    st.session_state["num_op"] = ""
+    st.session_state["cliente_select"] = ""
+    st.session_state["producto_select"] = ""
+    st.session_state["cant_total"] = 0
+    st.session_state["fecha_op"] = fecha_actual_hoy
+    
+    for i in range(10):
+        st.session_state[f"turno_{i}"] = ""
+        st.session_state[f"resp_{i}"] = ""
+        st.session_state[f"fecha_input_{i}"] = fecha_actual_hoy
+        st.session_state[f"lote_{i}"] = ""
+        st.session_state[f"mermas_{i}"] = 0.0
+        st.session_state[f"scrap_{i}"] = 0.0
+        st.session_state[f"cant_{i}"] = 0
+    st.session_state["necesita_limpieza"] = False
 
+# --- ENCABEZADO DE LA OP ---
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", fecha_actual_hoy), key="fecha_op")
+    fecha_op = st.date_input("FECHA DE LA OP", value=fecha_actual_hoy, key="fecha_op")
     num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
-    cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 87000), step=1000, key="cant_total")
+    cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
 
-# Manejo persistente de Cliente y Producto
 lista_clientes = list(CLIENTES_VIDA_UTIL.keys())
-cliente_guardado = st.session_state.get("cliente_select", lista_clientes[0])
+cliente_guardado = st.session_state.get("cliente_select", "")
 idx_cliente = lista_clientes.index(cliente_guardado) if cliente_guardado in lista_clientes else 0
 
 with col2:
     cliente = st.selectbox("CLIENTE", lista_clientes, index=idx_cliente, key="cliente_select")
-    lista_productos = PRODUCTOS_POR_CLIENTE.get(cliente, ["OTROS"])
+    lista_productos = PRODUCTOS_POR_CLIENTE.get(cliente, [""])
     
-    prod_guardado = st.session_state.get("producto_select", lista_productos[0])
+    prod_guardado = st.session_state.get("producto_select", "")
     idx_prod = lista_productos.index(prod_guardado) if prod_guardado in lista_productos else 0
     producto = st.selectbox("PRODUCTO", lista_productos, index=idx_prod, key="producto_select")
 
-vida_util_meses = CLIENTES_VIDA_UTIL[cliente]
+vida_util_meses = CLIENTES_VIDA_UTIL.get(cliente, 0)
 
 with col3:
-    st.info(f"**Vida Útil para {cliente}:** {vida_util_meses} meses")
+    if cliente != "":
+        st.info(f"**Vida Útil para {cliente}:** {vida_util_meses} meses")
+    else:
+        st.info("Seleccione un cliente para ver su vida útil.")
 
 # Validación de OP existente
 op_bloqueada = False
@@ -161,28 +189,19 @@ if num_op != "":
         st.error(f"⛔ LA OP N° '{num_op}' YA FUE CERRADA ANTERIORMENTE. NO SE PUEDE REUTILIZAR ESTE NÚMERO.")
         op_bloqueada = True
 
-st.markdown("---")
+# Validación de Encabezado Completo
+encabezado_completo = (num_op != "") and (cliente != "") and (producto != "") and (cant_total > 0)
 
-# --- LÓGICA DE LIMPIEZA ---
-if st.session_state.get("necesita_limpieza", False):
-    for i in range(10):
-        st.session_state[f"turno_{i}"] = ""
-        st.session_state[f"resp_{i}"] = ""
-        st.session_state[f"fecha_input_{i}"] = fecha_op
-        st.session_state[f"lote_{i}"] = ""
-        st.session_state[f"mermas_{i}"] = 0.0
-        st.session_state[f"scrap_{i}"] = 0.0
-        st.session_state[f"cant_{i}"] = 0
-    st.session_state["necesita_limpieza"] = False
+st.markdown("---")
 
 # --- BOTONES DE ACCIÓN ---
 col_btn1, col_btn2, _ = st.columns([1.5, 2.0, 3.0])
 
 with col_btn1:
-    st.button("🧹 Limpiar Solo Parciales", on_click=solicitar_limpieza, type="secondary")
+    st.button("🧹 Limpiar Formulario", on_click=solicitar_limpieza, type="secondary")
 
 with col_btn2:
-    mostrar_etiqueta = st.button("🏷️ Generar Etiqueta ÚLTIMO Parcial", type="secondary")
+    mostrar_etiqueta = st.button("🏷️ Generar Etiqueta ÚLTIMO Parcial", type="secondary", disabled=not encabezado_completo or op_bloqueada)
 
 def actualizar_fecha_fila(indice, fecha_base_op):
     f_ingresada = st.session_state[f"fecha_input_{indice}"]
@@ -194,6 +213,11 @@ def actualizar_fecha_fila(indice, fecha_base_op):
 
 # --- TABLA DE CARGA DE PARCIALES ---
 st.subheader("📦 Registro de Parciales")
+
+if not encabezado_completo:
+    st.warning("⚠️ Para comenzar a cargar parciales, primero debe completar el N° de OP, Cliente, Producto y Cantidad Total (> 0).")
+
+filas_deshabilitadas = (not encabezado_completo) or op_bloqueada
 
 hoy = fecha_actual_hoy
 max_vto = hoy + relativedelta(months=13)
@@ -220,10 +244,10 @@ for i in range(10):
         st.write(f"{nombre_parcial}")
         
     with col_t:
-        turno = st.selectbox("", ["", "M", "T", "N"], key=f"turno_{i}", disabled=op_bloqueada, label_visibility="collapsed")
+        turno = st.selectbox("", ["", "M", "T", "N"], key=f"turno_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
         
     with col_r:
-        responsable = st.selectbox("", LISTA_RESPONSABLES, key=f"resp_{i}", disabled=op_bloqueada, label_visibility="collapsed")
+        responsable = st.selectbox("", LISTA_RESPONSABLES, key=f"resp_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
         
     with col_f:
         if f"fecha_input_{i}" not in st.session_state:
@@ -232,7 +256,7 @@ for i in range(10):
         f_val = st.date_input(
             "", 
             key=f"fecha_input_{i}", 
-            disabled=op_bloqueada, 
+            disabled=filas_deshabilitadas, 
             label_visibility="collapsed",
             on_change=actualizar_fecha_fila,
             args=(i, fecha_op)
@@ -248,7 +272,7 @@ for i in range(10):
     
     with col_l:
         if cliente == "ENA":
-            lote_final = st.text_input("", key=f"lote_{i}", disabled=op_bloqueada, label_visibility="collapsed")
+            lote_final = st.text_input("", key=f"lote_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
         else:
             lote_final = lote_auto
             st.text_input("", value=lote_auto, key=f"lote_dis_{i}_{lote_auto}", disabled=True, label_visibility="collapsed")
@@ -258,13 +282,13 @@ for i in range(10):
         st.text_input("", value=vto_label, key=f"vto_dis_{i}_{vto_str}", disabled=True, label_visibility="collapsed")
         
     with col_m:
-        mermas_c = st.number_input("", min_value=0.0, step=0.1, format="%.1f", key=f"mermas_{i}", disabled=op_bloqueada, label_visibility="collapsed")
+        mermas_c = st.number_input("", min_value=0.0, step=0.1, format="%.1f", key=f"mermas_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
 
     with col_s:
-        scrap_p = st.number_input("", min_value=0.0, step=0.1, format="%.1f", key=f"scrap_{i}", disabled=op_bloqueada, label_visibility="collapsed")
+        scrap_p = st.number_input("", min_value=0.0, step=0.1, format="%.1f", key=f"scrap_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
 
     with col_c:
-        cant = st.number_input("", min_value=0, step=1000, key=f"cant_{i}", disabled=op_bloqueada, label_visibility="collapsed")
+        cant = st.number_input("", min_value=0, step=1000, key=f"cant_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
         tot_producido += cant
 
     parciales_cargados.append({
@@ -283,7 +307,6 @@ for i in range(10):
 datos_borrador = {
     "num_op": num_op,
     "cant_total": cant_total,
-    "fecha_op": fecha_op.isoformat() if isinstance(fecha_op, date) else str(fecha_op),
     "cliente_select": cliente,
     "producto_select": producto
 }
@@ -424,32 +447,25 @@ with col_res2:
 with col_cerrar:
     st.write("")
     st.write("")
-    if st.button("🔒 Cerrar y Guardar OP", type="primary", disabled=op_bloqueada):
-        if num_op == "":
-            st.warning("⚠️ Ingresa un N° de OP válido antes de cerrar.")
+    if st.button("🔒 Cerrar y Guardar OP", type="primary", disabled=not encabezado_completo or op_bloqueada):
+        fecha_cierre_arg = obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
+        datos_encabezado = {
+            "OP_Num": num_op,
+            "Fecha_OP": fecha_op.strftime("%d/%m/%Y"),
+            "Cliente": cliente,
+            "Producto": producto,
+            "Cant_Total_OP": cant_total,
+            "Total_Producido": tot_producido,
+            "Saldo_Restante": restan,
+            "Fecha_Cierre": fecha_cierre_arg
+        }
+        exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
+        if exito:
+            solicitar_limpieza()
+            st.success(f"✅ ¡OP N° {num_op} registrada en Google Sheets correctamente!")
+            st.rerun()
         else:
-            fecha_cierre_arg = obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
-            datos_encabezado = {
-                "OP_Num": num_op,
-                "Fecha_OP": fecha_op.strftime("%d/%m/%Y"),
-                "Cliente": cliente,
-                "Producto": producto,
-                "Cant_Total_OP": cant_total,
-                "Total_Producido": tot_producido,
-                "Saldo_Restante": restan,
-                "Fecha_Cierre": fecha_cierre_arg
-            }
-            exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
-            if exito:
-                try:
-                    localS.deleteItem("borrador_golomaster")
-                except Exception:
-                    pass
-                st.session_state["necesita_limpieza"] = True
-                st.success(f"✅ ¡OP N° {num_op} registrada en Google Sheets correctamente!")
-                st.rerun()
-            else:
-                st.error("❌ Ocurrió un error al guardar en Google Sheets. Verifique la conexión.")
+            st.error("❌ Ocurrió un error al guardar en Google Sheets. Verifique la conexión.")
 
 # --- HISTORIAL DESDE GOOGLE SHEETS ---
 st.markdown("---")
