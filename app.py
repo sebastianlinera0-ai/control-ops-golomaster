@@ -19,7 +19,7 @@ st.title("📋 Control de órdenes de producción Golomaster V1")
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/export?format=csv"
 
-# Función para obtener hora de Argentina (UTC-3) sin fallar
+# Función para obtener hora de Argentina (UTC-3)
 def obtener_ahora_arg():
     return datetime.utcnow() - timedelta(hours=3)
 
@@ -127,17 +127,27 @@ if "borrador_cargado" not in st.session_state:
     st.session_state["borrador_cargado"] = True
 
 # --- ENCABEZADO DE LA OP ---
+fecha_actual_hoy = obtener_ahora_arg().date()
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", date.today()), key="fecha_op")
+    fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", fecha_actual_hoy), key="fecha_op")
     num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
     cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 87000), step=1000, key="cant_total")
 
+# Manejo persistente de Cliente y Producto
+lista_clientes = list(CLIENTES_VIDA_UTIL.keys())
+cliente_guardado = st.session_state.get("cliente_select", lista_clientes[0])
+idx_cliente = lista_clientes.index(cliente_guardado) if cliente_guardado in lista_clientes else 0
+
 with col2:
-    cliente = st.selectbox("CLIENTE", list(CLIENTES_VIDA_UTIL.keys()), index=0, key="cliente_select")
+    cliente = st.selectbox("CLIENTE", lista_clientes, index=idx_cliente, key="cliente_select")
     lista_productos = PRODUCTOS_POR_CLIENTE.get(cliente, ["OTROS"])
-    producto = st.selectbox("PRODUCTO", lista_productos, key="producto_select")
+    
+    prod_guardado = st.session_state.get("producto_select", lista_productos[0])
+    idx_prod = lista_productos.index(prod_guardado) if prod_guardado in lista_productos else 0
+    producto = st.selectbox("PRODUCTO", lista_productos, index=idx_prod, key="producto_select")
 
 vida_util_meses = CLIENTES_VIDA_UTIL[cliente]
 
@@ -185,7 +195,7 @@ def actualizar_fecha_fila(indice, fecha_base_op):
 # --- TABLA DE CARGA DE PARCIALES ---
 st.subheader("📦 Registro de Parciales")
 
-hoy = date.today()
+hoy = fecha_actual_hoy
 max_vto = hoy + relativedelta(months=13)
 tot_producido = 0
 parciales_cargados = []
@@ -274,6 +284,8 @@ datos_borrador = {
     "num_op": num_op,
     "cant_total": cant_total,
     "fecha_op": fecha_op.isoformat() if isinstance(fecha_op, date) else str(fecha_op),
+    "cliente_select": cliente,
+    "producto_select": producto
 }
 
 for i in range(10):
@@ -299,7 +311,6 @@ if mostrar_etiqueta:
     if ultimos_validos:
         ultimo_p = ultimos_validos[-1]
         
-        # Fecha y Hora local exacta de Argentina (UTC-3)
         hora_arg = obtener_ahora_arg().strftime('%d/%m/%Y %H:%M')
         texto_op = f"OP: {num_op}" if num_op else "OP: N/A"
 
