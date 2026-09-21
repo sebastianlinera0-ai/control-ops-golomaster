@@ -102,8 +102,8 @@ if st.session_state["modulo_activo"] == "Producción":
                 "Fecha_Parcial": "", 
                 "Lote": "", 
                 "VTO": "", 
-                "Mermas_C": 0.0,
-                "Scrap_P": 0.0,
+                "Mermas_C": 0.000,
+                "Scrap_P": 0.000,
                 "Cantidad": 0
             })
             
@@ -196,8 +196,8 @@ if st.session_state["modulo_activo"] == "Producción":
             st.session_state[f"resp_{i}"] = ""
             st.session_state[f"fecha_input_{i}"] = fecha_actual_hoy
             st.session_state[f"lote_{i}"] = ""
-            st.session_state[f"mermas_{i}"] = 0.0
-            st.session_state[f"scrap_{i}"] = 0.0
+            st.session_state[f"mermas_{i}"] = 0.000
+            st.session_state[f"scrap_{i}"] = 0.000
             st.session_state[f"cant_{i}"] = 0
         st.session_state["necesita_limpieza"] = False
 
@@ -329,10 +329,10 @@ if st.session_state["modulo_activo"] == "Producción":
             st.text_input("", value=vto_label, key=f"vto_dis_{i}_{vto_str}", disabled=True, label_visibility="collapsed")
             
         with col_m:
-            mermas_c = st.number_input("", min_value=0.0, step=0.1, format="%.1f", key=f"mermas_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
+            mermas_c = st.number_input("", min_value=0.0, step=0.001, format="%.3f", key=f"mermas_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
 
         with col_s:
-            scrap_p = st.number_input("", min_value=0.0, step=0.1, format="%.1f", key=f"scrap_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
+            scrap_p = st.number_input("", min_value=0.0, step=0.001, format="%.3f", key=f"scrap_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
 
         with col_c:
             cant = st.number_input("", min_value=0, step=1000, key=f"cant_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
@@ -362,8 +362,8 @@ if st.session_state["modulo_activo"] == "Producción":
         datos_borrador[f"turno_{i}"] = st.session_state.get(f"turno_{i}", "")
         datos_borrador[f"resp_{i}"] = st.session_state.get(f"resp_{i}", "")
         datos_borrador[f"lote_{i}"] = st.session_state.get(f"lote_{i}", "")
-        datos_borrador[f"mermas_{i}"] = st.session_state.get(f"mermas_{i}", 0.0)
-        datos_borrador[f"scrap_{i}"] = st.session_state.get(f"scrap_{i}", 0.0)
+        datos_borrador[f"mermas_{i}"] = st.session_state.get(f"mermas_{i}", 0.000)
+        datos_borrador[f"scrap_{i}"] = st.session_state.get(f"scrap_{i}", 0.000)
         datos_borrador[f"cant_{i}"] = st.session_state.get(f"cant_{i}", 0)
         
         f_input = st.session_state.get(f"fecha_input_{i}", fecha_op)
