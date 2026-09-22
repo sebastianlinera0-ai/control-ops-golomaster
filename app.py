@@ -51,9 +51,47 @@ RAW_DATA_PLANNING = [
 
 df_planning_db = pd.DataFrame(RAW_DATA_PLANNING)
 
+# --- CONEXIÓN A GOOGLE SHEETS / HISTORIAL ---
+WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/export?format=csv"
+
+def obtener_ahora_arg():
+    return datetime.utcnow() - timedelta(hours=3)
+
+def cargar_historial():
+    try:
+        df = pd.read_csv(SHEET_CSV_URL)
+        return df
+    except Exception:
+        return pd.DataFrame()
+
+def obtener_siguiente_op_sugerida():
+    df = cargar_historial()
+    ops_existentes = []
+    
+    if not df.empty and "OP_Num" in df.columns:
+        for val in df["OP_Num"].dropna().unique():
+            val_str = str(val).strip()
+            if val_str.isdigit():
+                ops_existentes.append(int(val_str))
+                
+    # Consultar también planes locales acumulados
+    if "lista_planes" in st.session_state:
+        for p in st.session_state["lista_planes"]:
+            if str(p.get("OP_Num", "")).isdigit():
+                ops_existentes.append(int(p["OP_Num"]))
+                
+    if ops_existentes:
+        return str(max(ops_existentes) + 1)
+    else:
+        return "100"
+
 # --- NAVEGACIÓN Y PESTAÑAS (SOLAPAS) ---
 if "modulo_activo" not in st.session_state:
     st.session_state["modulo_activo"] = "Producción"
+
+if "planning_autenticado" not in st.session_state:
+    st.session_state["planning_autenticado"] = False
 
 # Estilo para solapas pequeñas arriba a la izquierda
 st.markdown(
@@ -100,21 +138,7 @@ st.markdown("---")
 if st.session_state["modulo_activo"] == "Producción":
     st.title("📋 Control de órdenes de producción Golomaster V1")
 
-    # --- CONEXIÓN CON GOOGLE SHEETS / APPS SCRIPT ---
-    WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
-    SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/export?format=csv"
-
-    def obtener_ahora_arg():
-        return datetime.utcnow() - timedelta(hours=3)
-
     fecha_actual_hoy = obtener_ahora_arg().date()
-
-    def cargar_historial():
-        try:
-            df = pd.read_csv(SHEET_CSV_URL)
-            return df
-        except Exception:
-            return pd.DataFrame()
 
     def op_existe(num_op):
         df = cargar_historial()
@@ -557,82 +581,148 @@ elif st.session_state["modulo_activo"] == "Stocks":
     st.info("🛠️ Módulo en desarrollo. Esta sección se encuentra lista para integrar la gestión de inventario, ubicaciones y materias primas.")
 
 # ==========================================
-# 3. MÓDULO PLANNING
+# 3. MÓDULO PLANNING (CON CONTRASEÑA)
 # ==========================================
 elif st.session_state["modulo_activo"] == "Planning":
     st.title("📅 Módulo Planning - Planificación de Producción")
-    
-    st.markdown("### 🔍 Selección de Producto")
-    
-    # 1. Categoría
-    categorias_disponibles = [""] + sorted(df_planning_db["CATEGORIA"].unique().tolist())
-    cat_sel = st.selectbox("1. CATEGORÍA", categorias_disponibles, key="plan_cat_select")
-    
-    # 2. Cliente (Filtra según Categoría seleccionada)
-    if cat_sel != "":
-        df_cat = df_planning_db[df_planning_db["CATEGORIA"] == cat_sel]
-        clientes_disponibles = [""] + sorted(df_cat["CLIENTE"].unique().tolist())
+
+    # Control de Autenticación por Contraseña
+    if not st.session_state["planning_autenticado"]:
+        st.subheader("🔒 Acceso Restringido")
+        col_pass1, col_pass2 = st.columns([2.0, 3.0])
+        with col_pass1:
+            clave_ingresada = st.text_input("Ingrese la contraseña de acceso:", type="password", key="pwd_planning")
+            if st.button("🔑 Ingresar al Módulo Planning", type="primary"):
+                if clave_ingresada == "golomaster":
+                    st.session_state["planning_autenticado"] = True
+                    st.success("🔓 Acceso concedido.")
+                    st.rerun()
+                else:
+                    st.error("❌ Contraseña incorrecta. Intente nuevamente.")
     else:
-        clientes_disponibles = [""]
+        # Pestaña autenticada
+        if "lista_planes" not in st.session_state:
+            st.session_state["lista_planes"] = []
+
+        fecha_plan_default = obtener_ahora_arg().date() + timedelta(days=1)
+        sug_op = obtener_siguiente_op_sugerida()
+
+        st.subheader("📋 Configuración del Plan de Producción")
         
-    cli_sel = st.selectbox("2. CLIENTE", clientes_disponibles, key="plan_cli_select")
-    
-    # 3. Producto (Filtra según Categoría y Cliente)
-    if cat_sel != "" and cli_sel != "":
-        df_prod = df_planning_db[(df_planning_db["CATEGORIA"] == cat_sel) & (df_planning_db["CLIENTE"] == cli_sel)]
-        productos_disponibles = [""] + sorted(df_prod["PRODUCTO"].unique().tolist())
-    else:
-        productos_disponibles = [""]
+        col_c1, col_c2, col_c3 = st.columns(3)
+        with col_c1:
+            fecha_plan = st.date_input("Fecha a Planificar", value=fecha_plan_default, key="fecha_plan")
+            op_plan = st.text_input("OP N° (Sugerida automática)", value=sug_op, key="op_plan").strip()
+
+        with col_c2:
+            turno_plan = st.selectbox("Turno de Trabajo", ["M", "T", "N"], key="turno_plan")
+
+        st.markdown("---")
+        st.markdown("### 🔍 Selección de Producto a Planificar")
+
+        # 1. Categoría
+        categorias_disponibles = [""] + sorted(df_planning_db["CATEGORIA"].unique().tolist())
+        cat_sel = st.selectbox("1. CATEGORÍA", categorias_disponibles, key="plan_cat_select")
+
+        # 2. Cliente (Filtra según Categoría seleccionada)
+        if cat_sel != "":
+            df_cat = df_planning_db[df_planning_db["CATEGORIA"] == cat_sel]
+            clientes_disponibles = [""] + sorted(df_cat["CLIENTE"].unique().tolist())
+        else:
+            clientes_disponibles = [""]
+
+        cli_sel = st.selectbox("2. CLIENTE", clientes_disponibles, key="plan_cli_select")
+
+        # 3. Producto (Filtra según Categoría y Cliente)
+        if cat_sel != "" and cli_sel != "":
+            df_prod = df_planning_db[(df_planning_db["CATEGORIA"] == cat_sel) & (df_planning_db["CLIENTE"] == cli_sel)]
+            productos_disponibles = [""] + sorted(df_prod["PRODUCTO"].unique().tolist())
+        else:
+            productos_disponibles = [""]
+
+        prod_sel = st.selectbox("3. PRODUCTO", productos_disponibles, key="plan_prod_select")
+
+        st.markdown("---")
+
+        # Detalle y Cuarta Celda (Cantidad en Unidades / Conversión)
+        if cat_sel != "" and cli_sel != "" and prod_sel != "":
+            fila_item = df_planning_db[
+                (df_planning_db["CATEGORIA"] == cat_sel) & 
+                (df_planning_db["CLIENTE"] == cli_sel) & 
+                (df_planning_db["PRODUCTO"] == prod_sel)
+            ].iloc[0]
+
+            es_bulto = fila_item["BULTO"] == "SI"
+            unidades_por_bulto = int(fila_item["UNIDADES"]) if es_bulto else 0
+
+            col_p1, col_p2, col_p3 = st.columns([1.5, 1.5, 2.0])
+
+            with col_p1:
+                st.write(f"**Categoría:** {cat_sel}")
+                st.write(f"**Cliente:** {cli_sel}")
+                st.write(f"**Producto:** {prod_sel}")
+
+            with col_p2:
+                st.write(f"**Aplica Bulto:** {fila_item['BULTO']}")
+                if es_bulto:
+                    st.write(f"**Unidades por Bulto / Caja:** {unidades_por_bulto}")
+                else:
+                    st.write("**Unidad de Medida:** KG")
+
+            with col_p3:
+                if es_bulto:
+                    cant_unidades_ingresadas = st.number_input(
+                        "4. CANTIDAD DE BARRAS / UNIDADES A PRODUCIR", 
+                        min_value=0, 
+                        step=100, 
+                        value=0, 
+                        key="cant_unid_plan"
+                    )
+                    cajas_calculadas = (cant_unidades_ingresadas / unidades_por_bulto) if unidades_por_bulto > 0 else 0.0
+                    st.metric(label="EQUIVALENTE EN CAJAS / BULTOS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                    total_resumen = f"{cajas_calculadas:,.2f} Cajas ({cant_unidades_ingresadas:,} U)"
+                else:
+                    cant_kg_ingresados = st.number_input(
+                        "4. CANTIDAD A PRODUCIR EN KILOGRAMOS (KG)", 
+                        min_value=0.000, 
+                        step=0.100, 
+                        format="%.3f", 
+                        value=0.000, 
+                        key="cant_kg_plan"
+                    )
+                    st.metric(label="TOTAL KILOGRAMOS (KG)", value=f"{cant_kg_ingresados:.3f} KG")
+                    total_resumen = f"{cant_kg_ingresados:.3f} KG"
+
+            st.markdown("---")
+            if st.button("➕ Agregar a Plan de Producción", type="primary"):
+                if op_plan == "":
+                    st.warning("⚠️ Debe especificar un N° de OP.")
+                else:
+                    nuevo_plan = {
+                        "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
+                        "OP_Num": op_plan,
+                        "Turno": turno_plan,
+                        "Cliente": cli_sel,
+                        "Producto": prod_sel,
+                        "Detalle_Cantidad": total_resumen
+                    }
+                    st.session_state["lista_planes"].append(nuevo_plan)
+                    st.success(f"✅ ¡Plan para la OP N° {op_plan} agregado exitosamente!")
+                    st.rerun()
+
+        else:
+            st.info("👈 Seleccione Categoría, Cliente y Producto para habilitar la carga de cantidades.")
+
+        # Tabla de Cronograma Acumulado
+        st.markdown("---")
+        st.subheader("📊 Cronograma de Planificaciones Cargadas")
         
-    prod_sel = st.selectbox("3. PRODUCTO", productos_disponibles, key="plan_prod_select")
-    
-    st.markdown("---")
-    
-    # Detalle y Cuarta Celda (Cantidad Supervisor)
-    if cat_sel != "" and cli_sel != "" and prod_sel != "":
-        fila_item = df_planning_db[
-            (df_planning_db["CATEGORIA"] == cat_sel) & 
-            (df_planning_db["CLIENTE"] == cli_sel) & 
-            (df_planning_db["PRODUCTO"] == prod_sel)
-        ].iloc[0]
-        
-        es_bulto = fila_item["BULTO"] == "SI"
-        unidades_por_bulto = int(fila_item["UNIDADES"]) if es_bulto else 0
-        
-        col_p1, col_p2, col_p3 = st.columns([1.5, 1.5, 2.0])
-        
-        with col_p1:
-            st.write(f"**Categoría:** {cat_sel}")
-            st.write(f"**Cliente:** {cli_sel}")
-            st.write(f"**Producto:** {prod_sel}")
+        if st.session_state["lista_planes"]:
+            df_planes_vista = pd.DataFrame(st.session_state["lista_planes"])
+            st.dataframe(df_planes_vista, use_container_width=True)
             
-        with col_p2:
-            st.write(f"**Aplica Bulto:** {fila_item['BULTO']}")
-            if es_bulto:
-                st.write(f"**Unidades por Bulto:** {unidades_por_bulto}")
-            else:
-                st.write("**Unidad de Medida:** KG")
-                
-        with col_p3:
-            if es_bulto:
-                cant_superv = st.number_input(
-                    "4. CANTIDAD DE BULTOS (Supervisor)", 
-                    min_value=0, 
-                    step=1, 
-                    value=0, 
-                    key="cant_superv_bultos"
-                )
-                total_barras = cant_superv * unidades_por_bulto
-                st.metric(label="TOTAL UNIDADES / BARRAS", value=f"{total_barras:,}".replace(",", "."))
-            else:
-                cant_superv_kg = st.number_input(
-                    "4. CANTIDAD PRODUCIDA (KG) (Supervisor)", 
-                    min_value=0.000, 
-                    step=0.100, 
-                    format="%.3f", 
-                    value=0.000, 
-                    key="cant_superv_kg"
-                )
-                st.metric(label="TOTAL KILOGRAMOS (KG)", value=f"{cant_superv_kg:.3f} KG")
-    else:
-        st.info("👈 Seleccione Categoría, Cliente y Producto para habilitar la carga de cantidades.")
+            if st.button("🧹 Limpiar Tabla de Planificación"):
+                st.session_state["lista_planes"] = []
+                st.rerun()
+        else:
+            st.info("No hay ítems planificados en el cronograma actual.")
