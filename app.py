@@ -74,22 +74,17 @@ def cargar_historial_planning():
         return pd.DataFrame()
 
 def obtener_todas_las_ops_existentes():
-    """Devuelve un conjunto con todas las OPs cargadas en Producción, Planning y sesión activa"""
     ops = set()
-    
-    # BD PRODU
     df_prod = cargar_historial()
     if not df_prod.empty and "OP_Num" in df_prod.columns:
         for val in df_prod["OP_Num"].dropna().unique():
             ops.add(str(val).strip())
             
-    # BD PLANNING
     df_plan = cargar_historial_planning()
     if not df_plan.empty and "OP_Num" in df_plan.columns:
         for val in df_plan["OP_Num"].dropna().unique():
             ops.add(str(val).strip())
             
-    # Lista local de sesión
     if "lista_planes" in st.session_state:
         for p in st.session_state["lista_planes"]:
             ops.add(str(p.get("OP_Num", "")).strip())
@@ -99,7 +94,6 @@ def obtener_todas_las_ops_existentes():
 def obtener_siguiente_op_sugerida():
     ops_existentes = obtener_todas_las_ops_existentes()
     numeros = []
-    
     for op in ops_existentes:
         if op.isdigit():
             numeros.append(int(op))
@@ -117,7 +111,6 @@ def renderizar_cronograma_semanal():
     
     fechas_semana = [inicio_semana + timedelta(days=i) for i in range(6)]
     
-    # Cargar datos consolidados desde Google Sheets (BD PLANNING) y Sesión Local
     df_p = cargar_historial_planning()
     planes_consolidadosa = []
     
@@ -177,7 +170,6 @@ if "modulo_activo" not in st.session_state:
 if "planning_autenticado" not in st.session_state:
     st.session_state["planning_autenticado"] = False
 
-# Estilo para solapas pequeñas
 st.markdown(
     """
     <style>
@@ -708,7 +700,7 @@ elif st.session_state["modulo_activo"] == "Planning":
         op_planning_duplicada = False
         
         if op_plan != "" and op_plan in todas_las_ops:
-            st.error(f"⛔ LA OP N° '{op_plan}' YA FUERA REGISTRADA O PLANIFICADA PREVIAMENTE. NO SE PUEDE REPETIR EL NÚMERO DE OP.")
+            st.error(f"⛔ LA OP N° '{op_plan}' YA FUE REGISTRADA O PLANIFICADA PREVIAMENTE. NO SE PUEDE REPETIR EL NÚMERO DE OP.")
             op_planning_duplicada = True
 
         st.markdown("---")
@@ -769,8 +761,22 @@ elif st.session_state["modulo_activo"] == "Planning":
                         key="cant_unid_plan"
                     )
                     cajas_calculadas = (cant_unidades_ingresadas / unidades_por_bulto) if unidades_por_bulto > 0 else 0.0
-                    st.metric(label="EQUIVALENTE EN CAJAS / BULTOS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                    total_resumen = f"{cajas_calculadas:,.2f} Cajas ({cant_unidades_ingresadas:,} U)"
+                    
+                    # --- LÓGICA DE CÁLCULO DE MASAS PARA INTEGRA ---
+                    if cli_sel == "INTEGRA":
+                        kg_totales = cant_unidades_ingresadas * 0.035
+                        masas_calculadas = kg_totales / 150.0
+                        
+                        col_m1, col_m2 = st.columns(2)
+                        with col_m1:
+                            st.metric(label="EQUIVALENTE EN CAJAS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                        with col_m2:
+                            st.metric(label="EQUIVALENTE EN MASAS (150 KG)", value=f"{masas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                            
+                        total_resumen = f"{cajas_calculadas:,.2f} Cajas ({cant_unidades_ingresadas:,} U) | {masas_calculadas:,.2f} Masas ({kg_totales:,.2f} KG)"
+                    else:
+                        st.metric(label="EQUIVALENTE EN CAJAS / BULTOS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                        total_resumen = f"{cajas_calculadas:,.2f} Cajas ({cant_unidades_ingresadas:,} U)"
                 else:
                     cant_kg_ingresados = st.number_input(
                         "4. CANTIDAD A PRODUCIR EN KILOGRAMOS (KG)", 
