@@ -73,23 +73,39 @@ def cargar_historial_planning():
     except Exception:
         return pd.DataFrame()
 
-def obtener_siguiente_op_sugerida():
-    df = cargar_historial()
-    ops_existentes = []
+def obtener_todas_las_ops_existentes():
+    """Devuelve un conjunto con todas las OPs cargadas en Producción, Planning y sesión activa"""
+    ops = set()
     
-    if not df.empty and "OP_Num" in df.columns:
-        for val in df["OP_Num"].dropna().unique():
-            val_str = str(val).strip()
-            if val_str.isdigit():
-                ops_existentes.append(int(val_str))
-                
+    # BD PRODU
+    df_prod = cargar_historial()
+    if not df_prod.empty and "OP_Num" in df_prod.columns:
+        for val in df_prod["OP_Num"].dropna().unique():
+            ops.add(str(val).strip())
+            
+    # BD PLANNING
+    df_plan = cargar_historial_planning()
+    if not df_plan.empty and "OP_Num" in df_plan.columns:
+        for val in df_plan["OP_Num"].dropna().unique():
+            ops.add(str(val).strip())
+            
+    # Lista local de sesión
     if "lista_planes" in st.session_state:
         for p in st.session_state["lista_planes"]:
-            if str(p.get("OP_Num", "")).isdigit():
-                ops_existentes.append(int(p["OP_Num"]))
-                
-    if ops_existentes:
-        return str(max(ops_existentes) + 1)
+            ops.add(str(p.get("OP_Num", "")).strip())
+            
+    return ops
+
+def obtener_siguiente_op_sugerida():
+    ops_existentes = obtener_todas_las_ops_existentes()
+    numeros = []
+    
+    for op in ops_existentes:
+        if op.isdigit():
+            numeros.append(int(op))
+            
+    if numeros:
+        return str(max(numeros) + 1)
     else:
         return "100"
 
@@ -136,7 +152,6 @@ def renderizar_cronograma_semanal():
         nom_dia = f"{dias_nombre[idx]} {f_date.strftime('%d/%m/%y')}"
         
         with cols[idx]:
-            # Encabezado Amarillo del Día
             st.markdown(
                 f"""
                 <div style="background-color: #ffff00; color: #000000; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #000; font-size: 13px; margin-bottom: 5px;">
@@ -146,14 +161,12 @@ def renderizar_cronograma_semanal():
                 unsafe_allow_html=True
             )
             
-            # Buscar planes para esta fecha
             items_dia = [it for it in planes_consolidadosa if it["Fecha_Plan"] == f_str or it["Fecha_Plan"] == f_date.strftime("%d/%m/%Y")]
             
             if items_dia:
                 df_dia = pd.DataFrame(items_dia)[["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"]]
                 st.dataframe(df_dia, use_container_width=True, hide_index=True)
             else:
-                # Mostrar estructura vacía limpia cuando no hay cargas
                 df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
                 st.dataframe(df_vacio, use_container_width=True, hide_index=True)
 
@@ -164,7 +177,7 @@ if "modulo_activo" not in st.session_state:
 if "planning_autenticado" not in st.session_state:
     st.session_state["planning_autenticado"] = False
 
-# Estilo para solapas pequeñas arriba a la izquierda
+# Estilo para solapas pequeñas
 st.markdown(
     """
     <style>
@@ -207,7 +220,6 @@ st.markdown("---")
 # 1. MÓDULO PRODUCCIÓN
 # ==========================================
 if st.session_state["modulo_activo"] == "Producción":
-    # --- CRONOGRAMA SEMANAL HORIZONTAL ARRIBA DE TODO ---
     renderizar_cronograma_semanal()
     st.markdown("---")
 
@@ -691,6 +703,14 @@ elif st.session_state["modulo_activo"] == "Planning":
         with col_c2:
             turno_plan = st.selectbox("Turno de Trabajo", ["M", "T", "N"], key="turno_plan")
 
+        # --- VALIDACIÓN DE REPETICIÓN DE OP EN PLANNING ---
+        todas_las_ops = obtener_todas_las_ops_existentes()
+        op_planning_duplicada = False
+        
+        if op_plan != "" and op_plan in todas_las_ops:
+            st.error(f"⛔ LA OP N° '{op_plan}' YA FUERA REGISTRADA O PLANIFICADA PREVIAMENTE. NO SE PUEDE REPETIR EL NÚMERO DE OP.")
+            op_planning_duplicada = True
+
         st.markdown("---")
         st.markdown("### 🔍 Selección de Producto a Planificar")
 
@@ -715,7 +735,7 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         st.markdown("---")
 
-        if cat_sel != "" and cli_sel != "":
+        if cat_sel != "" and cli_sel != "" and prod_sel != "":
             fila_item = df_planning_db[
                 (df_planning_db["CATEGORIA"] == cat_sel) & 
                 (df_planning_db["CLIENTE"] == cli_sel) & 
@@ -764,7 +784,7 @@ elif st.session_state["modulo_activo"] == "Planning":
                     total_resumen = f"{cant_kg_ingresados:.3f} KG"
 
             st.markdown("---")
-            if st.button("➕ Guardar y Enviar Plan a Google Sheets (BD PLANNING)", type="primary"):
+            if st.button("➕ Guardar y Enviar Plan a Google Sheets (BD PLANNING)", type="primary", disabled=op_planning_duplicada):
                 if op_plan == "":
                     st.warning("⚠️ Debe especificar un N° de OP.")
                 else:
