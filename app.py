@@ -3,7 +3,6 @@ import streamlit.components.v1 as components
 import pandas as pd
 import requests
 import json
-import re
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 from streamlit_local_storage import LocalStorage
@@ -104,11 +103,11 @@ def obtener_siguiente_op_sugerida():
     else:
         return "100"
 
-def resaltar_masas_html(texto_cant):
-    """Resalta en amarillo fosforescente la parte de 'X.XX Masas'"""
-    pattern = r"(\|?\s*)([\d\.,]+\s*Masas)"
-    replacement = r'\1<span style="color: #ffff00; font-weight: bold; background-color: #333300; padding: 2px 4px; border-radius: 3px;">\2</span>'
-    return re.sub(pattern, replacement, str(texto_cant), flags=re.IGNORECASE)
+def estilar_celda_masas(val):
+    """Aplica color de texto amarillo brillante y negrita si contiene la palabra Masas"""
+    if "Masas" in str(val):
+        return 'color: #ffff00; font-weight: bold; background-color: #262626;'
+    return ''
 
 # --- FUNCION PARA DIBUJAR EL CRONOGRAMA HORIZONTAL DE LA SEMANA ---
 def renderizar_cronograma_semanal():
@@ -166,33 +165,9 @@ def renderizar_cronograma_semanal():
             if items_dia:
                 df_dia = pd.DataFrame(items_dia)[["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"]]
                 
-                # Renderizado HTML para permitir el texto resaltado en amarillo
-                html_tabla = """
-                <table style="width:100%; border-collapse:collapse; font-size:11px; color:#ffffff; background-color:#1e1e1e;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid #444; text-align:left; font-weight:bold; background-color:#2b2b2b;">
-                            <th style="padding:4px;">OP</th>
-                            <th style="padding:4px;">TURNO</th>
-                            <th style="padding:4px;">CLIENTE</th>
-                            <th style="padding:4px;">PRODUCTO</th>
-                            <th style="padding:4px;">CANTIDAD</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                """
-                for _, row in df_dia.iterrows():
-                    cant_html = resaltar_masas_html(row['CANTIDAD'])
-                    html_tabla += f"""
-                        <tr style="border-bottom: 1px solid #333;">
-                            <td style="padding:4px;">{row['OP']}</td>
-                            <td style="padding:4px;">{row['TURNO']}</td>
-                            <td style="padding:4px;">{row['CLIENTE']}</td>
-                            <td style="padding:4px;">{row['PRODUCTO']}</td>
-                            <td style="padding:4px;">{cant_html}</td>
-                        </tr>
-                    """
-                html_tabla += "</tbody></table>"
-                st.markdown(html_tabla, unsafe_allow_html=True)
+                # Aplica el estilo nativo de Pandas para resaltar en amarillo si contiene Masas
+                df_styled = df_dia.style.map(estilar_celda_masas, subset=['CANTIDAD'])
+                st.dataframe(df_styled, use_container_width=True, hide_index=True)
             else:
                 df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
                 st.dataframe(df_vacio, use_container_width=True, hide_index=True)
