@@ -639,7 +639,7 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         st.markdown("---")
 
-        if cat_sel != "" and cli_sel != "":
+        if cat_sel != "" and cli_sel != "" and prod_sel != "":
             fila_item = df_planning_db[
                 (df_planning_db["CATEGORIA"] == cat_sel) & 
                 (df_planning_db["CLIENTE"] == cli_sel) & 
