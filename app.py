@@ -101,7 +101,7 @@ def renderizar_cronograma_semanal():
     
     fechas_semana = [inicio_semana + timedelta(days=i) for i in range(6)]
     
-    # Cargar datos desde Google Sheets (BD PLANNING) y Sesión Local
+    # Cargar datos consolidados desde Google Sheets (BD PLANNING) y Sesión Local
     df_p = cargar_historial_planning()
     planes_consolidadosa = []
     
@@ -109,18 +109,25 @@ def renderizar_cronograma_semanal():
         for _, r in df_p.iterrows():
             planes_consolidadosa.append({
                 "Fecha_Plan": str(r.get("Fecha_Plan", "")).strip(),
-                "OP_Num": str(r.get("OP_Num", "")).strip(),
-                "Turno": str(r.get("Turno", "")).strip(),
-                "Cliente": str(r.get("Cliente", "")).strip(),
-                "Producto": str(r.get("Producto", "")).strip(),
-                "Detalle_Cantidad": str(r.get("Detalle_Cantidad", "")).strip()
+                "OP": str(r.get("OP_Num", "")).strip(),
+                "TURNO": str(r.get("Turno", "")).strip(),
+                "CLIENTE": str(r.get("Cliente", "")).strip(),
+                "PRODUCTO": str(r.get("Producto", "")).strip(),
+                "CANTIDAD": str(r.get("Detalle_Cantidad", "")).strip()
             })
             
     if "lista_planes" in st.session_state:
         for p in st.session_state["lista_planes"]:
-            planes_consolidadosa.append(p)
+            planes_consolidadosa.append({
+                "Fecha_Plan": str(p.get("Fecha_Plan", "")).strip(),
+                "OP": str(p.get("OP_Num", "")).strip(),
+                "TURNO": str(p.get("Turno", "")).strip(),
+                "CLIENTE": str(p.get("Cliente", "")).strip(),
+                "PRODUCTO": str(p.get("Producto", "")).strip(),
+                "CANTIDAD": str(p.get("Detalle_Cantidad", "")).strip()
+            })
 
-    st.markdown("##### 📅 CRONOGRAMA SEMANAL DE PLANIFICACIÓN DE PRODUCCIÓN")
+    st.markdown("##### 📅 CRONOGRAMA SEMANAL DE PLANIFICACIÓN")
     
     cols = st.columns(6)
     
@@ -129,9 +136,10 @@ def renderizar_cronograma_semanal():
         nom_dia = f"{dias_nombre[idx]} {f_date.strftime('%d/%m/%y')}"
         
         with cols[idx]:
+            # Encabezado Amarillo del Día
             st.markdown(
                 f"""
-                <div style="background-color: #ffff00; color: #000000; font-weight: bold; text-align: center; padding: 4px; border: 1px solid #000; font-size: 13px;">
+                <div style="background-color: #ffff00; color: #000000; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #000; font-size: 13px; margin-bottom: 5px;">
                     {nom_dia}
                 </div>
                 """, 
@@ -139,47 +147,15 @@ def renderizar_cronograma_semanal():
             )
             
             # Buscar planes para esta fecha
-            items_dia = [item for item in planes_consolidadosa if item["Fecha_Plan"] == f_str or item["Fecha_Plan"] == f_date.strftime("%d/%m/%Y")]
+            items_dia = [it for it in planes_consolidadosa if it["Fecha_Plan"] == f_str or it["Fecha_Plan"] == f_date.strftime("%d/%m/%Y")]
             
             if items_dia:
-                rows_html = ""
-                for it in items_dia:
-                    rows_html += f"""
-                    <tr style="font-size: 11px; text-align: center;">
-                        <td style="border: 1px solid #444;"><b>{it['OP_Num']}</b></td>
-                        <td style="border: 1px solid #444;">{it['Turno']}</td>
-                        <td style="border: 1px solid #444;">{it['Cliente']}</td>
-                        <td style="border: 1px solid #444;">{it['Producto']}</td>
-                        <td style="border: 1px solid #444;"><b>{it['Detalle_Cantidad']}</b></td>
-                    </tr>
-                    """
-                
-                tabla_html = f"""
-                <table style="width: 100%; border-collapse: collapse; margin-top: 2px; color: #ffffff;">
-                    <thead>
-                        <tr style="background-color: #222222; font-size: 10px; text-align: center; font-weight: bold;">
-                            <th style="border: 1px solid #444; width: 15%;">OP</th>
-                            <th style="border: 1px solid #444; width: 15%;">TURNO</th>
-                            <th style="border: 1px solid #444; width: 20%;">CLIENTE</th>
-                            <th style="border: 1px solid #444; width: 30%;">PRODUCTO</th>
-                            <th style="border: 1px solid #444; width: 20%;">CANTIDAD</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows_html}
-                    </tbody>
-                </table>
-                """
-                st.markdown(tabla_html, unsafe_allow_html=True)
+                df_dia = pd.DataFrame(items_dia)[["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"]]
+                st.dataframe(df_dia, use_container_width=True, hide_index=True)
             else:
-                st.markdown(
-                    """
-                    <div style="border: 1px solid #444; padding: 10px; text-align: center; font-size: 11px; color: #888888; margin-top: 2px;">
-                        - Sin cargas -
-                    </div>
-                    """, 
-                    unsafe_allow_html=True
-                )
+                # Mostrar estructura vacía limpia cuando no hay cargas
+                df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
+                st.dataframe(df_vacio, use_container_width=True, hide_index=True)
 
 # --- NAVEGACIÓN Y PESTAÑAS (SOLAPAS) ---
 if "modulo_activo" not in st.session_state:
