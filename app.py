@@ -75,7 +75,6 @@ def obtener_siguiente_op_sugerida():
             if val_str.isdigit():
                 ops_existentes.append(int(val_str))
                 
-    # Consultar también planes locales acumulados
     if "lista_planes" in st.session_state:
         for p in st.session_state["lista_planes"]:
             if str(p.get("OP_Num", "")).isdigit():
@@ -547,6 +546,7 @@ if st.session_state["modulo_activo"] == "Producción":
         if st.button("🔒 Cerrar y Guardar OP", type="primary", disabled=not encabezado_completo or op_bloqueada):
             fecha_cierre_arg = obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
             datos_encabezado = {
+                "tipo": "PRODUCCION",
                 "OP_Num": num_op,
                 "Fecha_OP": fecha_op.strftime("%d/%m/%Y"),
                 "Cliente": cliente,
@@ -559,13 +559,13 @@ if st.session_state["modulo_activo"] == "Producción":
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
                 solicitar_limpieza()
-                st.success(f"✅ ¡OP N° {num_op} registrada en Google Sheets correctamente!")
+                st.success(f"✅ ¡OP N° {num_op} registrada en la pestaña 'BD PRODU' correctamente!")
                 st.rerun()
             else:
                 st.error("❌ Ocurrió un error al guardar en Google Sheets. Verifique la conexión.")
 
     st.markdown("---")
-    st.subheader("📚 Historial de OPs Cerradas (Google Sheets)")
+    st.subheader("📚 Historial de OPs Cerradas (Google Sheets - BD PRODU)")
     df_historial = cargar_historial()
 
     if not df_historial.empty:
@@ -581,12 +581,11 @@ elif st.session_state["modulo_activo"] == "Stocks":
     st.info("🛠️ Módulo en desarrollo. Esta sección se encuentra lista para integrar la gestión de inventario, ubicaciones y materias primas.")
 
 # ==========================================
-# 3. MÓDULO PLANNING (CON CONTRASEÑA)
+# 3. MÓDULO PLANNING (DESTINO: BD PLANNING)
 # ==========================================
 elif st.session_state["modulo_activo"] == "Planning":
     st.title("📅 Módulo Planning - Planificación de Producción")
 
-    # Control de Autenticación por Contraseña
     if not st.session_state["planning_autenticado"]:
         st.subheader("🔒 Acceso Restringido")
         col_pass1, col_pass2 = st.columns([2.0, 3.0])
@@ -600,7 +599,6 @@ elif st.session_state["modulo_activo"] == "Planning":
                 else:
                     st.error("❌ Contraseña incorrecta. Intente nuevamente.")
     else:
-        # Pestaña autenticada
         if "lista_planes" not in st.session_state:
             st.session_state["lista_planes"] = []
 
@@ -620,11 +618,9 @@ elif st.session_state["modulo_activo"] == "Planning":
         st.markdown("---")
         st.markdown("### 🔍 Selección de Producto a Planificar")
 
-        # 1. Categoría
         categorias_disponibles = [""] + sorted(df_planning_db["CATEGORIA"].unique().tolist())
         cat_sel = st.selectbox("1. CATEGORÍA", categorias_disponibles, key="plan_cat_select")
 
-        # 2. Cliente (Filtra según Categoría seleccionada)
         if cat_sel != "":
             df_cat = df_planning_db[df_planning_db["CATEGORIA"] == cat_sel]
             clientes_disponibles = [""] + sorted(df_cat["CLIENTE"].unique().tolist())
@@ -633,7 +629,6 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         cli_sel = st.selectbox("2. CLIENTE", clientes_disponibles, key="plan_cli_select")
 
-        # 3. Producto (Filtra según Categoría y Cliente)
         if cat_sel != "" and cli_sel != "":
             df_prod = df_planning_db[(df_planning_db["CATEGORIA"] == cat_sel) & (df_planning_db["CLIENTE"] == cli_sel)]
             productos_disponibles = [""] + sorted(df_prod["PRODUCTO"].unique().tolist())
@@ -644,7 +639,6 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         st.markdown("---")
 
-        # Detalle y Cuarta Celda (Cantidad en Unidades / Conversión)
         if cat_sel != "" and cli_sel != "" and prod_sel != "":
             fila_item = df_planning_db[
                 (df_planning_db["CATEGORIA"] == cat_sel) & 
@@ -694,26 +688,46 @@ elif st.session_state["modulo_activo"] == "Planning":
                     total_resumen = f"{cant_kg_ingresados:.3f} KG"
 
             st.markdown("---")
-            if st.button("➕ Agregar a Plan de Producción", type="primary"):
+            if st.button("➕ Guardar y Enviar Plan a Google Sheets (BD PLANNING)", type="primary"):
                 if op_plan == "":
                     st.warning("⚠️ Debe especificar un N° de OP.")
                 else:
-                    nuevo_plan = {
+                    payload_planning = [{
+                        "tipo": "PLANNING",
                         "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
                         "OP_Num": op_plan,
                         "Turno": turno_plan,
+                        "Categoria": cat_sel,
                         "Cliente": cli_sel,
                         "Producto": prod_sel,
-                        "Detalle_Cantidad": total_resumen
-                    }
-                    st.session_state["lista_planes"].append(nuevo_plan)
-                    st.success(f"✅ ¡Plan para la OP N° {op_plan} agregado exitosamente!")
-                    st.rerun()
+                        "Detalle_Cantidad": total_resumen,
+                        "Fecha_Cierre": obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
+                    }]
+                    
+                    try:
+                        resp = requests.post(WEBAPP_URL, json=payload_planning)
+                        if resp.status_code == 200:
+                            nuevo_plan = {
+                                "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
+                                "OP_Num": op_plan,
+                                "Turno": turno_plan,
+                                "Categoria": cat_sel,
+                                "Cliente": cli_sel,
+                                "Producto": prod_sel,
+                                "Detalle_Cantidad": total_resumen
+                            }
+                            st.session_state["lista_planes"].append(nuevo_plan)
+                            st.success(f"✅ ¡Plan para la OP N° {op_plan} guardado en la solapa 'BD PLANNING' de Google Sheets correctamente!")
+                            st.rerun()
+                        else:
+                            st.error("❌ Ocurrió un error al guardar en la base de datos de Google Sheets.")
+                    except Exception:
+                        st.error("❌ Ocurrió un error de conexión al enviar los datos.")
 
         else:
             st.info("👈 Seleccione Categoría, Cliente y Producto para habilitar la carga de cantidades.")
 
-        # Tabla de Cronograma Acumulado
+        # Cronograma de Planificaciones
         st.markdown("---")
         st.subheader("📊 Cronograma de Planificaciones Cargadas")
         
@@ -721,8 +735,8 @@ elif st.session_state["modulo_activo"] == "Planning":
             df_planes_vista = pd.DataFrame(st.session_state["lista_planes"])
             st.dataframe(df_planes_vista, use_container_width=True)
             
-            if st.button("🧹 Limpiar Tabla de Planificación"):
+            if st.button("🧹 Limpiar Vista de Sesión"):
                 st.session_state["lista_planes"] = []
                 st.rerun()
         else:
-            st.info("No hay ítems planificados en el cronograma actual.")
+            st.info("No hay ítems planificados en la vista de sesión actual.")
