@@ -168,8 +168,8 @@ if st.session_state["modulo_activo"] == "Producción":
             })
             
         try:
-            response = requests.post(WEBAPP_URL, json=registros)
-            return response.status_code == 200
+            response = requests.post(WEBAPP_URL, json=registros, allow_redirects=True)
+            return response.status_code in [200, 302]
         except Exception:
             return False
 
@@ -705,8 +705,8 @@ elif st.session_state["modulo_activo"] == "Planning":
                     }]
                     
                     try:
-                        resp = requests.post(WEBAPP_URL, json=payload_planning)
-                        if resp.status_code == 200:
+                        resp = requests.post(WEBAPP_URL, json=payload_planning, allow_redirects=True)
+                        if resp.status_code in [200, 302]:
                             nuevo_plan = {
                                 "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
                                 "OP_Num": op_plan,
