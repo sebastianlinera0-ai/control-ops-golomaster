@@ -715,7 +715,7 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         st.markdown("---")
 
-        if cat_sel != "" and cli_sel != "" and prod_sel != "":
+        if cat_sel != "" and cli_sel != "":
             fila_item = df_planning_db[
                 (df_planning_db["CATEGORIA"] == cat_sel) & 
                 (df_planning_db["CLIENTE"] == cli_sel) & 
@@ -803,16 +803,13 @@ elif st.session_state["modulo_activo"] == "Planning":
         else:
             st.info("👈 Seleccione Categoría, Cliente y Producto para habilitar la carga de cantidades.")
 
-        # Cronograma de Planificaciones
+        # Cronograma de Planificaciones / Historial de BD PLANNING
         st.markdown("---")
-        st.subheader("📊 Cronograma de Planificaciones Cargadas")
+        st.subheader("📚 Base de Datos de Planificaciones (Google Sheets - BD PLANNING)")
         
-        if st.session_state["lista_planes"]:
-            df_planes_vista = pd.DataFrame(st.session_state["lista_planes"])
-            st.dataframe(df_planes_vista, use_container_width=True)
-            
-            if st.button("🧹 Limpiar Vista de Sesión"):
-                st.session_state["lista_planes"] = []
-                st.rerun()
+        df_planning_historial = cargar_historial_planning()
+        
+        if not df_planning_historial.empty:
+            st.dataframe(df_planning_historial, use_container_width=True)
         else:
-            st.info("No hay ítems planificados en la vista de sesión actual.")
+            st.info("No hay órdenes de planificación registradas aún en la pestaña BD PLANNING de Google Sheets.")
