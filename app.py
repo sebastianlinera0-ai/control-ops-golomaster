@@ -14,7 +14,7 @@ st.set_page_config(page_title="Control Golomaster V1", layout="wide")
 localS = LocalStorage()
 
 # ==============================================================================
-# --- BASE DE DATOS MAESTRA (ÚNICA FUENTE DE VERDAD) ---
+# --- BASE DE DATOS MAESTRA ---
 # ==============================================================================
 RAW_DATA_MAESTRA = [
     # BARRITAS - INTEGRA
@@ -62,7 +62,7 @@ RAW_DATA_MAESTRA = [
 
 df_maestro = pd.DataFrame(RAW_DATA_MAESTRA)
 
-# --- CONEXIÓN A GOOGLE SHEETS / HISTORIAL ---
+# --- CONEXIÓN A GOOGLE SHEETS ---
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/export?format=csv"
 SHEET_PLANNING_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/gviz/tq?tqx=out:csv&sheet=BD%20PLANNING"
@@ -84,6 +84,94 @@ def cargar_historial_planning():
     except Exception:
         return pd.DataFrame()
 
+# ==============================================================================
+# --- FUNCIONES DE GUARDADO RESTRUCTURADAS ---
+# ==============================================================================
+def guardar_op_en_sheets(datos_op, filas_parciales):
+    """Envía la información formateada para la pestaña BD PRODU (A -> Q)"""
+    registros = []
+    parciales_validos = [f for f in filas_parciales if f.get("Cantidad", 0) > 0 or f.get("Turno", "") != "" or f.get("Responsable", "") != ""]
+
+    if not parciales_validos:
+        registro_unico = {
+            "OP_Num": datos_op.get("OP_Num", ""),
+            "Fecha_OP": str(datos_op.get("Fecha_OP", "")),
+            "Cliente": datos_op.get("Cliente", ""),
+            "Producto": datos_op.get("Producto", ""),
+            "Cant_Total_OP": datos_op.get("Cant_Total_OP", 0),
+            "Parcial": "Sin cargas",
+            "Turno": "",
+            "Responsable": "",
+            "Fecha_Parcial": "",
+            "Lote": "",
+            "VTO": "",
+            "Mermas_C": 0.0,
+            "Scrap_P": 0.0,
+            "Cantidad": 0,
+            "Total_Producido": datos_op.get("Total_Producido", 0),
+            "Saldo_Restante": datos_op.get("Saldo_Restante", 0),
+            "Fecha_Cierre": str(datos_op.get("Fecha_Cierre", ""))
+        }
+        registros.append(registro_unico)
+    else:
+        for f in parciales_validos:
+            registro = {
+                "OP_Num": datos_op.get("OP_Num", ""),
+                "Fecha_OP": str(datos_op.get("Fecha_OP", "")),
+                "Cliente": datos_op.get("Cliente", ""),
+                "Producto": datos_op.get("Producto", ""),
+                "Cant_Total_OP": datos_op.get("Cant_Total_OP", 0),
+                "Parcial": f.get("Parcial", ""),
+                "Turno": f.get("Turno", ""),
+                "Responsable": f.get("Responsable", ""),
+                "Fecha_Parcial": str(f.get("Fecha_Parcial", "")),
+                "Lote": f.get("Lote", ""),
+                "VTO": str(f.get("VTO", "")),
+                "Mermas_C": f.get("Mermas_C", 0.0),
+                "Scrap_P": f.get("Scrap_P", 0.0),
+                "Cantidad": f.get("Cantidad", 0),
+                "Total_Producido": datos_op.get("Total_Producido", 0),
+                "Saldo_Restante": datos_op.get("Saldo_Restante", 0),
+                "Fecha_Cierre": str(datos_op.get("Fecha_Cierre", ""))
+            }
+            registros.append(registro)
+
+    payload = {
+        "hoja": "BD PRODU",
+        "registros": registros
+    }
+
+    try:
+        response = requests.post(WEBAPP_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"}, allow_redirects=True)
+        return response.status_code in [200, 302] and "Error" not in response.text
+    except Exception:
+        return False
+
+def guardar_planning_en_sheets(datos_planning):
+    """Envía la información formateada para la pestaña BD PLANNING (A -> H)"""
+    registro = {
+        "Fecha_Plan": str(datos_planning.get("Fecha_Plan", "")),
+        "OP_Num": datos_planning.get("OP_Num", ""),
+        "Turno": datos_planning.get("Turno", ""),
+        "Categoria": datos_planning.get("Categoria", ""),
+        "Cliente": datos_planning.get("Cliente", ""),
+        "Producto": datos_planning.get("Producto", ""),
+        "Detalle_Cantidad": datos_planning.get("Detalle_Cantidad", 0),
+        "Fecha_Carga": str(datos_planning.get("Fecha_Carga", ""))
+    }
+
+    payload = {
+        "hoja": "BD PLANNING",
+        "registros": [registro]
+    }
+
+    try:
+        response = requests.post(WEBAPP_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"}, allow_redirects=True)
+        return response.status_code in [200, 302] and "Error" not in response.text
+    except Exception:
+        return False
+
+# --- FUNCIONES DE AUXILIO E INTERFAZ ---
 def obtener_todas_las_ops_existentes():
     ops = set()
     df_prod = cargar_historial()
@@ -109,10 +197,7 @@ def obtener_siguiente_op_sugerida():
         if op.isdigit():
             numeros.append(int(op))
             
-    if numeros:
-        return str(max(numeros) + 1)
-    else:
-        return "100"
+    return str(max(numeros) + 1) if numeros else "100"
 
 def estilar_celda_masas(val):
     if "Masas" in str(val):
@@ -176,7 +261,7 @@ def renderizar_cronograma_semanal():
                 df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
                 st.dataframe(df_vacio, use_container_width=True, hide_index=True)
 
-# --- NAVEGACIÓN Y PESTAÑAS (SOLAPAS INCLUYENDO ANALÍTICA) ---
+# --- NAVEGACIÓN Y SOLAPAS ---
 if "modulo_activo" not in st.session_state:
     st.session_state["modulo_activo"] = "Producción"
 
@@ -243,33 +328,6 @@ if st.session_state["modulo_activo"] == "Producción":
         if not df.empty and "OP_Num" in df.columns:
             return str(num_op).strip() in df["OP_Num"].astype(str).str.strip().values
         return False
-
-    def guardar_op_en_sheets(datos_op, filas_parciales):
-        registros = []
-        for f in filas_parciales:
-            if f["Cantidad"] > 0 or f["Turno"] != "" or f["Responsable"] != "":
-                registro = {**datos_op, **f}
-                registros.append(registro)
-                
-        if not registros:
-            registros.append({
-                **datos_op, 
-                "Parcial": "Sin cargas", 
-                "Turno": "", 
-                "Responsable": "",
-                "Fecha_Parcial": "", 
-                "Lote": "", 
-                "VTO": "", 
-                "Mermas_C": 0.000,
-                "Scrap_P": 0.000,
-                "Cantidad": 0
-            })
-            
-        try:
-            response = requests.post(WEBAPP_URL, json=registros, allow_redirects=True)
-            return response.status_code in [200, 302]
-        except Exception:
-            return False
 
     def solicitar_limpieza():
         st.session_state["necesita_limpieza"] = True
@@ -623,7 +681,6 @@ if st.session_state["modulo_activo"] == "Producción":
         if st.button("🔒 Cerrar y Guardar OP", type="primary", disabled=not encabezado_completo or op_bloqueada):
             fecha_cierre_arg = obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
             datos_encabezado = {
-                "tipo": "PRODUCCION",
                 "OP_Num": num_op,
                 "Fecha_OP": fecha_op.strftime("%d/%m/%Y"),
                 "Cliente": cliente,
@@ -789,8 +846,7 @@ elif st.session_state["modulo_activo"] == "Planning":
                 if op_plan == "":
                     st.warning("⚠️ Debe especificar un N° de OP.")
                 else:
-                    payload_planning = [{
-                        "tipo": "PLANNING",
+                    payload_planning = {
                         "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
                         "OP_Num": op_plan,
                         "Turno": turno_plan,
@@ -798,28 +854,25 @@ elif st.session_state["modulo_activo"] == "Planning":
                         "Cliente": cli_sel,
                         "Producto": prod_sel,
                         "Detalle_Cantidad": total_resumen,
-                        "Fecha_Cierre": obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
-                    }]
+                        "Fecha_Carga": obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
+                    }
                     
-                    try:
-                        resp = requests.post(WEBAPP_URL, json=payload_planning, allow_redirects=True)
-                        if resp.status_code in [200, 302]:
-                            nuevo_plan = {
-                                "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
-                                "OP_Num": op_plan,
-                                "Turno": turno_plan,
-                                "Categoria": cat_sel,
-                                "Cliente": cli_sel,
-                                "Producto": prod_sel,
-                                "Detalle_Cantidad": total_resumen
-                            }
-                            st.session_state["lista_planes"].append(nuevo_plan)
-                            st.success(f"✅ ¡Plan para la OP N° {op_plan} guardado en la solapa 'BD PLANNING' de Google Sheets correctamente!")
-                            st.rerun()
-                        else:
-                            st.error("❌ Ocurrió un error al guardar en la base de datos de Google Sheets.")
-                    except Exception:
-                        st.error("❌ Ocurrió un error de conexión al enviar los datos.")
+                    exito = guardar_planning_en_sheets(payload_planning)
+                    if exito:
+                        nuevo_plan = {
+                            "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
+                            "OP_Num": op_plan,
+                            "Turno": turno_plan,
+                            "Categoria": cat_sel,
+                            "Cliente": cli_sel,
+                            "Producto": prod_sel,
+                            "Detalle_Cantidad": total_resumen
+                        }
+                        st.session_state["lista_planes"].append(nuevo_plan)
+                        st.success(f"✅ ¡Plan para la OP N° {op_plan} guardado en la solapa 'BD PLANNING' correctamente!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Ocurrió un error al guardar en la base de datos de Google Sheets.")
 
         else:
             st.info("👈 Seleccione Categoría, Cliente y Producto para habilitar la carga de cantidades.")
@@ -835,7 +888,7 @@ elif st.session_state["modulo_activo"] == "Planning":
             st.info("No hay órdenes de planificación registradas aún en la pestaña BD PLANNING de Google Sheets.")
 
 # ==========================================
-# 4. MÓDULO ANALÍTICA Y DASHBOARD (NUEVO)
+# 4. MÓDULO ANALÍTICA
 # ==========================================
 elif st.session_state["modulo_activo"] == "Analítica":
     st.title("📊 Dashboard y Analítica de Producción")
@@ -844,9 +897,8 @@ elif st.session_state["modulo_activo"] == "Analítica":
     df_analytics = cargar_historial()
 
     if df_analytics.empty:
-        st.warning("⚠️ No se encontraron datos en `BD PRODUCCION` para analizar en este momento.")
+        st.warning("⚠️ No se encontraron datos en `BD PRODU` para analizar en este momento.")
     else:
-        # Preprocesamiento de fechas
         col_fecha_nom = "Fecha_OP" if "Fecha_OP" in df_analytics.columns else ("Fecha_Parcial" if "Fecha_Parcial" in df_analytics.columns else None)
         
         if col_fecha_nom:
@@ -856,14 +908,12 @@ elif st.session_state["modulo_activo"] == "Analítica":
 
         df_valid_dates = df_analytics.dropna(subset=["Fecha_DT"])
 
-        # Conversiones numéricas
         for num_col in ["Cantidad", "Total_Producido", "Cant_Total_OP", "Mermas_C", "Scrap_P"]:
             if num_col in df_analytics.columns:
                 df_analytics[num_col] = pd.to_numeric(df_analytics[num_col].astype(str).str.replace(",", "."), errors="coerce").fillna(0)
             else:
                 df_analytics[num_col] = 0
 
-        # --- SECCIÓN DE FILTROS / SLIDERS ---
         st.markdown("### 🎛️ Panel de Control y Filtros")
 
         col_f1, col_f2, col_f3 = st.columns([2.0, 1.5, 1.5])
@@ -878,9 +928,8 @@ elif st.session_state["modulo_activo"] == "Analítica":
                 min_f = date.today() - timedelta(days=30)
                 max_f = date.today()
 
-            # Slider de rango de fechas
             rango_fechas = st.slider(
-                "📅 Rango de Fechas de Producción (Slider)",
+                "📅 Rango de Fechas de Producción",
                 min_value=min_f,
                 max_value=max_f,
                 value=(min_f, max_f),
@@ -896,7 +945,6 @@ elif st.session_state["modulo_activo"] == "Analítica":
             prods_options = ["TODOS"] + sorted(df_analytics["Producto"].dropna().unique().tolist()) if "Producto" in df_analytics.columns else ["TODOS"]
             producto_filtro = st.multiselect("🍫 Filtrar por Producto", options=prods_options, default=["TODOS"], key="filter_producto_analitica")
 
-        # --- APLICACIÓN DE FILTROS ---
         df_filtered = df_analytics.copy()
 
         if "Fecha_DT" in df_filtered.columns:
@@ -912,7 +960,6 @@ elif st.session_state["modulo_activo"] == "Analítica":
 
         st.markdown("---")
 
-        # --- KPIS PRINCIPALES ---
         col_k1, col_k2, col_k3, col_k4 = st.columns(4)
 
         if "Cantidad" in df_filtered.columns and df_filtered["Cantidad"].sum() > 0:
@@ -935,7 +982,6 @@ elif st.session_state["modulo_activo"] == "Analítica":
 
         st.markdown("---")
 
-        # --- GRÁFICOS INTERACTIVOS ---
         col_g1, col_g2 = st.columns(2)
 
         with col_g1:
@@ -975,7 +1021,6 @@ elif st.session_state["modulo_activo"] == "Analítica":
 
         st.markdown("---")
 
-        # --- TABLA DE DETALLE Y DESCARGA ---
         st.markdown("### 🔍 Detalle de Registros Filtrados")
         st.dataframe(df_filtered, use_container_width=True)
 
