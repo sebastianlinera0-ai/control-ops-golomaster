@@ -13,43 +13,54 @@ st.set_page_config(page_title="Control Golomaster V1", layout="wide")
 # Instancia de almacenamiento local
 localS = LocalStorage()
 
-# --- BASE DE DATOS DEL MÓDULO PLANNING ---
-RAW_DATA_PLANNING = [
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR AVELLANA", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR MANI", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CACAO", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA AFA", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CACAO AFA", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA CT", "BULTO": "SI", "UNIDADES": 128},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA CM", "BULTO": "SI", "UNIDADES": 64},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BROWNIE CT", "BULTO": "SI", "UNIDADES": 128},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BROWNIE CM", "BULTO": "SI", "UNIDADES": 64},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA CT", "BULTO": "SI", "UNIDADES": 128},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA CM", "BULTO": "SI", "UNIDADES": 64},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO CT", "BULTO": "SI", "UNIDADES": 128},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO CM", "BULTO": "SI", "UNIDADES": 64},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CHOCOLATE", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR MANI", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR PISTACHO", "BULTO": "SI", "UNIDADES": 192},
-    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "GOLOMASTER", "PRODUCTO": "GARRAPIÑADA DE MANI X 15", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "EL 32", "PRODUCTO": "GARRAPIÑADA DE MANI X 5", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "GARRAPIÑADA ALMENDRA", "CLIENTE": "GOLOMASTER", "PRODUCTO": "GARRAPIÑADA DE ALMENDRA X 15", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENVASADO MANI GARRAPIÑADA 50U*80G", "BULTO": "SI", "UNIDADES": 50},
-    {"CATEGORIA": "MANI CROCANTE", "CLIENTE": "ARGENFRUT", "PRODUCTO": "GARRAPIÑADA DE MANI X 15", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENGORDE - 1", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "CHOCOLATADO -2", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ALISADO - 3", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ABRILLANTADO - 4", "BULTO": "NO", "UNIDADES": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENVASADO DE ALMENDRA + CH 36U*80GR", "BULTO": "SI", "UNIDADES": 36},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "CHOCOMORA", "PRODUCTO": "ENVASADO DE ALMENDRA + CH 40U*80GR", "BULTO": "SI", "UNIDADES": 40}
+# ==============================================================================
+# --- BASE DE DATOS MAESTRA (ÚNICA FUENTE DE VERDAD) ---
+# ==============================================================================
+RAW_DATA_MAESTRA = [
+    # BARRITAS - INTEGRA
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR AVELLANA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR MANI", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CACAO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA AFA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CACAO AFA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
+    
+    # BARRITAS - ENA
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE GARRA PIÑADA BANANA CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BROWNIE CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BROWNIE CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
+    
+    # BARRITAS - DELUX
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CHOCOLATE", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR MANI", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
+    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR PISTACHO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
+    
+    # GARRAPIÑADAS & MANI CROCANTE
+    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "GOLOMASTER", "PRODUCTO": "GARRAPIÑADA DE MANI X 15", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
+    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "EL 32", "PRODUCTO": "GARRAPIÑADA DE MANI X 5", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
+    {"CATEGORIA": "GARRAPIÑADA ALMENDRA", "CLIENTE": "GOLOMASTER", "PRODUCTO": "GARRAPIÑADA DE ALMENDRA X 15", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
+    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENVASADO MANI GARRAPIÑADA 50U*80G", "BULTO": "SI", "UNIDADES": 50, "VIDA_UTIL": 8},
+    {"CATEGORIA": "MANI CROCANTE", "CLIENTE": "ARGENFRUT", "PRODUCTO": "GARRAPIÑADA DE MANI X 15", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
+    
+    # ALMENDRAS + CH
+    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENGORDE - 1", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
+    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "CHOCOLATADO -2", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
+    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ALISADO - 3", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
+    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ABRILLANTADO - 4", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
+    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENVASADO DE ALMENDRA + CH 36U*80GR", "BULTO": "SI", "UNIDADES": 36, "VIDA_UTIL": 8},
+    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "CHOCOMORA", "PRODUCTO": "ENVASADO DE ALMENDRA + CH 40U*80GR", "BULTO": "SI", "UNIDADES": 40, "VIDA_UTIL": 8}
 ]
 
-df_planning_db = pd.DataFrame(RAW_DATA_PLANNING)
+df_maestro = pd.DataFrame(RAW_DATA_MAESTRA)
 
 # --- CONEXIÓN A GOOGLE SHEETS / HISTORIAL ---
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
@@ -104,17 +115,14 @@ def obtener_siguiente_op_sugerida():
         return "100"
 
 def estilar_celda_masas(val):
-    """Aplica color de texto amarillo brillante y negrita si contiene la palabra Masas"""
     if "Masas" in str(val):
         return 'color: #ffff00; font-weight: bold; background-color: #262626;'
     return ''
 
-# --- FUNCION PARA DIBUJAR EL CRONOGRAMA HORIZONTAL DE LA SEMANA ---
 def renderizar_cronograma_semanal():
     dias_nombre = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
     hoy = obtener_ahora_arg().date()
     inicio_semana = hoy - timedelta(days=hoy.weekday())
-    
     fechas_semana = [inicio_semana + timedelta(days=i) for i in range(6)]
     
     df_p = cargar_historial_planning()
@@ -143,7 +151,6 @@ def renderizar_cronograma_semanal():
             })
 
     st.markdown("##### 📅 CRONOGRAMA SEMANAL DE PLANIFICACIÓN")
-    
     cols = st.columns(6)
     
     for idx, f_date in enumerate(fechas_semana):
@@ -159,20 +166,17 @@ def renderizar_cronograma_semanal():
                 """, 
                 unsafe_allow_html=True
             )
-            
             items_dia = [it for it in planes_consolidadosa if it["Fecha_Plan"] == f_str or it["Fecha_Plan"] == f_date.strftime("%d/%m/%Y")]
             
             if items_dia:
                 df_dia = pd.DataFrame(items_dia)[["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"]]
-                
-                # Aplica el estilo nativo de Pandas para resaltar en amarillo si contiene Masas
                 df_styled = df_dia.style.map(estilar_celda_masas, subset=['CANTIDAD'])
                 st.dataframe(df_styled, use_container_width=True, hide_index=True)
             else:
                 df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
                 st.dataframe(df_vacio, use_container_width=True, hide_index=True)
 
-# --- NAVEGACIÓN Y PESTAÑAS (SOLAPAS) ---
+# --- NAVEGACIÓN Y PESTAÑAS (SOLAPAS INCLUYENDO ANALÍTICA) ---
 if "modulo_activo" not in st.session_state:
     st.session_state["modulo_activo"] = "Producción"
 
@@ -195,7 +199,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-col_nav1, col_nav2, col_nav3, _ = st.columns([1.2, 1.1, 1.1, 6.0])
+col_nav1, col_nav2, col_nav3, col_nav4, _ = st.columns([1.2, 1.1, 1.1, 1.2, 4.8])
 
 with col_nav1:
     btn_prod_type = "primary" if st.session_state["modulo_activo"] == "Producción" else "secondary"
@@ -213,6 +217,12 @@ with col_nav3:
     btn_plan_type = "primary" if st.session_state["modulo_activo"] == "Planning" else "secondary"
     if st.button("📅 Módulo Planning", type=btn_plan_type, use_container_width=True):
         st.session_state["modulo_activo"] = "Planning"
+        st.rerun()
+
+with col_nav4:
+    btn_analitica_type = "primary" if st.session_state["modulo_activo"] == "Analítica" else "secondary"
+    if st.button("📊 Módulo Analítica", type=btn_analitica_type, use_container_width=True):
+        st.session_state["modulo_activo"] = "Analítica"
         st.rerun()
 
 st.markdown("---")
@@ -236,7 +246,6 @@ if st.session_state["modulo_activo"] == "Producción":
 
     def guardar_op_en_sheets(datos_op, filas_parciales):
         registros = []
-        
         for f in filas_parciales:
             if f["Cantidad"] > 0 or f["Turno"] != "" or f["Responsable"] != "":
                 registro = {**datos_op, **f}
@@ -269,45 +278,6 @@ if st.session_state["modulo_activo"] == "Producción":
         except Exception:
             pass
 
-    CLIENTES_VIDA_UTIL = {
-        "": 0,
-        "INTEGRA": 7,
-        "ENA": 12,
-        "DELUXE": 12,
-        "GARRAPIÑADA": 8
-    }
-
-    PRODUCTOS_POR_CLIENTE = {
-        "": [""],
-        "INTEGRA": [
-            "",
-            "BARRAS DE CACAO SABOR MANI",
-            "BARRAS DE CACAO SABOR AVELLANA",
-            "BARRAS DE CACAO SABOR COCO",
-            "BARRAS DE CACAO CON CHOCOLATE",
-            "BARRAS DE CACAO SABOR BANANA"
-        ],
-        "ENA": [
-            "",
-            "BARRA SABOR BANANA CM",
-            "BARRA SABOR BANANA CT",
-            "BARRA SABOR FRUTILLA CM",
-            "BARRA SABOR FRUTILLA CT",
-            "BARRA SABOR BROWNIE CM",
-            "BARRA SABOR BROWNIE CT",
-            "BARRA SABOR COCO CT",
-            "SABOR COCO CM"
-        ],
-        "DELUXE": [
-            "",
-            "PRODUCTO DELUXE GENERAL"
-        ],
-        "GARRAPIÑADA": [
-            "",
-            "GARRAPIÑADA GENERAL"
-        ]
-    }
-
     LISTA_RESPONSABLES = ["", "Carlos", "Victor", "Guille", "Lujan", "Sebastian"]
 
     if "borrador_cargado" not in st.session_state:
@@ -332,8 +302,8 @@ if st.session_state["modulo_activo"] == "Producción":
 
     if st.session_state.get("necesita_limpieza", False):
         st.session_state["num_op"] = ""
-        st.session_state["cliente_select"] = ""
-        st.session_state["producto_select"] = ""
+        st.session_state["cliente_select_prod"] = ""
+        st.session_state["producto_select_prod"] = ""
         st.session_state["cant_total"] = 0
         st.session_state["fecha_op"] = fecha_actual_hoy
         
@@ -354,25 +324,39 @@ if st.session_state["modulo_activo"] == "Producción":
         num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
 
-    lista_clientes = list(CLIENTES_VIDA_UTIL.keys())
-    cliente_guardado = st.session_state.get("cliente_select", "")
-    idx_cliente = lista_clientes.index(cliente_guardado) if cliente_guardado in lista_clientes else 0
+    lista_clientes_prod = [""] + sorted(df_maestro["CLIENTE"].unique().tolist())
+    cli_guardado_prod = st.session_state.get("cliente_select_prod", "")
+    idx_cli_prod = lista_clientes_prod.index(cli_guardado_prod) if cli_guardado_prod in lista_clientes_prod else 0
 
     with col2:
-        cliente = st.selectbox("CLIENTE", lista_clientes, index=idx_cliente, key="cliente_select")
-        lista_productos = PRODUCTOS_POR_CLIENTE.get(cliente, [""])
+        cliente = st.selectbox("CLIENTE", lista_clientes_prod, index=idx_cli_prod, key="cliente_select_prod")
         
-        prod_guardado = st.session_state.get("producto_select", "")
-        idx_prod = lista_productos.index(prod_guardado) if prod_guardado in lista_productos else 0
-        producto = st.selectbox("PRODUCTO", lista_productos, index=idx_prod, key="producto_select")
+        if cliente != "":
+            prods_filtrados = df_maestro[df_maestro["CLIENTE"] == cliente]["PRODUCTO"].unique().tolist()
+            lista_productos_prod = [""] + sorted(prods_filtrados)
+        else:
+            lista_productos_prod = [""]
 
-    vida_util_meses = CLIENTES_VIDA_UTIL.get(cliente, 0)
+        prod_guardado_prod = st.session_state.get("producto_select_prod", "")
+        idx_prod_p = lista_productos_prod.index(prod_guardado_prod) if prod_guardado_prod in lista_productos_prod else 0
+        producto = st.selectbox("PRODUCTO", lista_productos_prod, index=idx_prod_p, key="producto_select_prod")
+
+    vida_util_meses = 0
+    if cliente != "" and producto != "":
+        match_item = df_maestro[(df_maestro["CLIENTE"] == cliente) & (df_maestro["PRODUCTO"] == producto)]
+        if not match_item.empty:
+            vida_util_meses = int(match_item.iloc[0]["VIDA_UTIL"])
 
     with col3:
-        if cliente != "":
-            st.info(f"**Vida Útil para {cliente}:** {vida_util_meses} meses")
+        if cliente != "" and producto != "":
+            if vida_util_meses > 0:
+                st.info(f"**Vida Útil para {producto}:** {vida_util_meses} meses")
+            else:
+                st.warning(f"**Vida Útil para {producto}:** No aplica VTO (-)")
+        elif cliente != "":
+            st.info("Seleccione un producto para obtener su vida útil.")
         else:
-            st.info("Seleccione un cliente para ver su vida útil.")
+            st.info("Seleccione un cliente y producto.")
 
     op_bloqueada = False
     if num_op != "":
@@ -454,10 +438,16 @@ if st.session_state["modulo_activo"] == "Producción":
                 st.error(f"🚨 **ERROR DE FECHA EN {nombre_parcial}**")
 
         lote_auto = f_val.strftime("%d%m%y")
-        vto_date = f_val + relativedelta(months=vida_util_meses)
-        vto_str = vto_date.strftime("%d%m%y")
-        es_vto_valido = (hoy <= vto_date <= max_vto)
         
+        if vida_util_meses > 0:
+            vto_date = f_val + relativedelta(months=vida_util_meses)
+            vto_str = vto_date.strftime("%d%m%y")
+            es_vto_valido = (hoy <= vto_date <= max_vto)
+            vto_label = f"{vto_str} 🟢" if es_vto_valido else f"{vto_str} 🔴"
+        else:
+            vto_str = "-"
+            vto_label = "-"
+
         with col_l:
             if cliente == "ENA":
                 lote_final = st.text_input("", key=f"lote_{i}", disabled=filas_deshabilitadas, label_visibility="collapsed")
@@ -466,7 +456,6 @@ if st.session_state["modulo_activo"] == "Producción":
                 st.text_input("", value=lote_auto, key=f"lote_dis_{i}_{lote_auto}", disabled=True, label_visibility="collapsed")
             
         with col_v:
-            vto_label = f"{vto_str} 🟢" if es_vto_valido else f"{vto_str} 🔴"
             st.text_input("", value=vto_label, key=f"vto_dis_{i}_{vto_str}", disabled=True, label_visibility="collapsed")
             
         with col_m:
@@ -494,8 +483,8 @@ if st.session_state["modulo_activo"] == "Producción":
     datos_borrador = {
         "num_op": num_op,
         "cant_total": cant_total,
-        "cliente_select": cliente,
-        "producto_select": producto
+        "cliente_select_prod": cliente,
+        "producto_select_prod": producto
     }
 
     for i in range(10):
@@ -519,7 +508,6 @@ if st.session_state["modulo_activo"] == "Producción":
         
         if ultimos_validos:
             ultimo_p = ultimos_validos[-1]
-            
             hora_arg = obtener_ahora_arg().strftime('%d/%m/%Y %H:%M')
             texto_op = f"OP: {num_op}" if num_op else "OP: N/A"
 
@@ -670,7 +658,7 @@ elif st.session_state["modulo_activo"] == "Stocks":
     st.info("🛠️ Módulo en desarrollo. Esta sección se encuentra lista para integrar la gestión de inventario, ubicaciones y materias primas.")
 
 # ==========================================
-# 3. MÓDULO PLANNING (DESTINO: BD PLANNING)
+# 3. MÓDULO PLANNING
 # ==========================================
 elif st.session_state["modulo_activo"] == "Planning":
     st.title("📅 Módulo Planning - Planificación de Producción")
@@ -704,7 +692,6 @@ elif st.session_state["modulo_activo"] == "Planning":
         with col_c2:
             turno_plan = st.selectbox("Turno de Trabajo", ["M", "T", "N"], key="turno_plan")
 
-        # --- VALIDACIÓN DE REPETICIÓN DE OP EN PLANNING ---
         todas_las_ops = obtener_todas_las_ops_existentes()
         op_planning_duplicada = False
         
@@ -715,11 +702,11 @@ elif st.session_state["modulo_activo"] == "Planning":
         st.markdown("---")
         st.markdown("### 🔍 Selección de Producto a Planificar")
 
-        categorias_disponibles = [""] + sorted(df_planning_db["CATEGORIA"].unique().tolist())
+        categorias_disponibles = [""] + sorted(df_maestro["CATEGORIA"].unique().tolist())
         cat_sel = st.selectbox("1. CATEGORÍA", categorias_disponibles, key="plan_cat_select")
 
         if cat_sel != "":
-            df_cat = df_planning_db[df_planning_db["CATEGORIA"] == cat_sel]
+            df_cat = df_maestro[df_maestro["CATEGORIA"] == cat_sel]
             clientes_disponibles = [""] + sorted(df_cat["CLIENTE"].unique().tolist())
         else:
             clientes_disponibles = [""]
@@ -727,7 +714,7 @@ elif st.session_state["modulo_activo"] == "Planning":
         cli_sel = st.selectbox("2. CLIENTE", clientes_disponibles, key="plan_cli_select")
 
         if cat_sel != "" and cli_sel != "":
-            df_prod = df_planning_db[(df_planning_db["CATEGORIA"] == cat_sel) & (df_planning_db["CLIENTE"] == cli_sel)]
+            df_prod = df_maestro[(df_maestro["CATEGORIA"] == cat_sel) & (df_maestro["CLIENTE"] == cli_sel)]
             productos_disponibles = [""] + sorted(df_prod["PRODUCTO"].unique().tolist())
         else:
             productos_disponibles = [""]
@@ -737,10 +724,10 @@ elif st.session_state["modulo_activo"] == "Planning":
         st.markdown("---")
 
         if cat_sel != "" and cli_sel != "" and prod_sel != "":
-            fila_item = df_planning_db[
-                (df_planning_db["CATEGORIA"] == cat_sel) & 
-                (df_planning_db["CLIENTE"] == cli_sel) & 
-                (df_planning_db["PRODUCTO"] == prod_sel)
+            fila_item = df_maestro[
+                (df_maestro["CATEGORIA"] == cat_sel) & 
+                (df_maestro["CLIENTE"] == cli_sel) & 
+                (df_maestro["PRODUCTO"] == prod_sel)
             ].iloc[0]
 
             es_bulto = fila_item["BULTO"] == "SI"
@@ -771,7 +758,6 @@ elif st.session_state["modulo_activo"] == "Planning":
                     )
                     cajas_calculadas = (cant_unidades_ingresadas / unidades_por_bulto) if unidades_por_bulto > 0 else 0.0
                     
-                    # --- LÓGICA DE CÁLCULO DE MASAS PARA INTEGRA ---
                     if cli_sel == "INTEGRA":
                         kg_totales = cant_unidades_ingresadas * 0.035
                         masas_calculadas = kg_totales / 150.0
@@ -838,7 +824,6 @@ elif st.session_state["modulo_activo"] == "Planning":
         else:
             st.info("👈 Seleccione Categoría, Cliente y Producto para habilitar la carga de cantidades.")
 
-        # Cronograma de Planificaciones / Historial de BD PLANNING
         st.markdown("---")
         st.subheader("📚 Base de Datos de Planificaciones (Google Sheets - BD PLANNING)")
         
@@ -848,3 +833,156 @@ elif st.session_state["modulo_activo"] == "Planning":
             st.dataframe(df_planning_historial, use_container_width=True)
         else:
             st.info("No hay órdenes de planificación registradas aún en la pestaña BD PLANNING de Google Sheets.")
+
+# ==========================================
+# 4. MÓDULO ANALÍTICA Y DASHBOARD (NUEVO)
+# ==========================================
+elif st.session_state["modulo_activo"] == "Analítica":
+    st.title("📊 Dashboard y Analítica de Producción")
+    st.caption("Alimentado dinámicamente desde la base de datos `BD PRODUCCION`")
+
+    df_analytics = cargar_historial()
+
+    if df_analytics.empty:
+        st.warning("⚠️ No se encontraron datos en `BD PRODUCCION` para analizar en este momento.")
+    else:
+        # Preprocesamiento de fechas
+        col_fecha_nom = "Fecha_OP" if "Fecha_OP" in df_analytics.columns else ("Fecha_Parcial" if "Fecha_Parcial" in df_analytics.columns else None)
+        
+        if col_fecha_nom:
+            df_analytics["Fecha_DT"] = pd.to_datetime(df_analytics[col_fecha_nom], format="%d/%m/%Y", errors="coerce")
+        else:
+            df_analytics["Fecha_DT"] = pd.NaT
+
+        df_valid_dates = df_analytics.dropna(subset=["Fecha_DT"])
+
+        # Conversiones numéricas
+        for num_col in ["Cantidad", "Total_Producido", "Cant_Total_OP", "Mermas_C", "Scrap_P"]:
+            if num_col in df_analytics.columns:
+                df_analytics[num_col] = pd.to_numeric(df_analytics[num_col].astype(str).str.replace(",", "."), errors="coerce").fillna(0)
+            else:
+                df_analytics[num_col] = 0
+
+        # --- SECCIÓN DE FILTROS / SLIDERS ---
+        st.markdown("### 🎛️ Panel de Control y Filtros")
+
+        col_f1, col_f2, col_f3 = st.columns([2.0, 1.5, 1.5])
+
+        with col_f1:
+            if not df_valid_dates.empty:
+                min_f = df_valid_dates["Fecha_DT"].min().date()
+                max_f = df_valid_dates["Fecha_DT"].max().date()
+                if min_f == max_f:
+                    min_f = min_f - timedelta(days=7)
+            else:
+                min_f = date.today() - timedelta(days=30)
+                max_f = date.today()
+
+            # Slider de rango de fechas
+            rango_fechas = st.slider(
+                "📅 Rango de Fechas de Producción (Slider)",
+                min_value=min_f,
+                max_value=max_f,
+                value=(min_f, max_f),
+                format="DD/MM/YYYY",
+                key="slider_fechas_analitica"
+            )
+
+        with col_f2:
+            clientes_options = ["TODOS"] + sorted(df_analytics["Cliente"].dropna().unique().tolist()) if "Cliente" in df_analytics.columns else ["TODOS"]
+            cliente_filtro = st.multiselect("🏢 Filtrar por Cliente", options=clientes_options, default=["TODOS"], key="filter_cliente_analitica")
+
+        with col_f3:
+            prods_options = ["TODOS"] + sorted(df_analytics["Producto"].dropna().unique().tolist()) if "Producto" in df_analytics.columns else ["TODOS"]
+            producto_filtro = st.multiselect("🍫 Filtrar por Producto", options=prods_options, default=["TODOS"], key="filter_producto_analitica")
+
+        # --- APLICACIÓN DE FILTROS ---
+        df_filtered = df_analytics.copy()
+
+        if "Fecha_DT" in df_filtered.columns:
+            f_inicio = pd.to_datetime(rango_fechas[0])
+            f_fin = pd.to_datetime(rango_fechas[1])
+            df_filtered = df_filtered[(df_filtered["Fecha_DT"] >= f_inicio) & (df_filtered["Fecha_DT"] <= f_fin)]
+
+        if "TODOS" not in cliente_filtro and len(cliente_filtro) > 0:
+            df_filtered = df_filtered[df_filtered["Cliente"].isin(cliente_filtro)]
+
+        if "TODOS" not in producto_filtro and len(producto_filtro) > 0:
+            df_filtered = df_filtered[df_filtered["Producto"].isin(producto_filtro)]
+
+        st.markdown("---")
+
+        # --- KPIS PRINCIPALES ---
+        col_k1, col_k2, col_k3, col_k4 = st.columns(4)
+
+        if "Cantidad" in df_filtered.columns and df_filtered["Cantidad"].sum() > 0:
+            total_unid = df_filtered["Cantidad"].sum()
+        else:
+            total_unid = df_filtered["Total_Producido"].sum() if "Total_Producido" in df_filtered.columns else 0
+
+        tot_mermas = df_filtered["Mermas_C"].sum() if "Mermas_C" in df_filtered.columns else 0
+        tot_scrap = df_filtered["Scrap_P"].sum() if "Scrap_P" in df_filtered.columns else 0
+        total_ops = df_filtered["OP_Num"].nunique() if "OP_Num" in df_filtered.columns else 0
+
+        with col_k1:
+            st.metric("📦 Unidades Producidas", f"{int(total_unid):,}".replace(",", "."))
+        with col_k2:
+            st.metric("📋 Órdenes de Producción (OPs)", f"{total_ops}")
+        with col_k3:
+            st.metric("📉 Mermas Totales (KG)", f"{tot_mermas:.2f} kg")
+        with col_k4:
+            st.metric("🗑️ Scrap Total (KG)", f"{tot_scrap:.2f} kg")
+
+        st.markdown("---")
+
+        # --- GRÁFICOS INTERACTIVOS ---
+        col_g1, col_g2 = st.columns(2)
+
+        with col_g1:
+            st.markdown("#### 📈 Evolución Diaria de Producción")
+            if not df_filtered.empty and "Fecha_DT" in df_filtered.columns:
+                df_trend = df_filtered.groupby(df_filtered["Fecha_DT"].dt.strftime("%d/%m/%Y"))["Cantidad"].sum().reset_index()
+                st.line_chart(df_trend.set_index("Fecha_DT"))
+            else:
+                st.info("Sin datos suficientes para graficar la tendencia.")
+
+        with col_g2:
+            st.markdown("#### 🏢 Participación de Producción por Cliente")
+            if not df_filtered.empty and "Cliente" in df_filtered.columns:
+                df_cli_chart = df_filtered.groupby("Cliente")["Cantidad"].sum().reset_index()
+                st.bar_chart(df_cli_chart.set_index("Cliente"))
+            else:
+                st.info("Sin datos de clientes para mostrar.")
+
+        st.markdown("---")
+        col_g3, col_g4 = st.columns(2)
+
+        with col_g3:
+            st.markdown("#### 🏆 Top Productos Fabricados")
+            if not df_filtered.empty and "Producto" in df_filtered.columns:
+                df_prod_chart = df_filtered.groupby("Producto")["Cantidad"].sum().sort_values(ascending=False).head(5)
+                st.bar_chart(df_prod_chart)
+            else:
+                st.info("Sin datos de productos.")
+
+        with col_g4:
+            st.markdown("#### ⏱️ Producción por Turno")
+            if not df_filtered.empty and "Turno" in df_filtered.columns:
+                df_turno_chart = df_filtered.groupby("Turno")["Cantidad"].sum()
+                st.bar_chart(df_turno_chart)
+            else:
+                st.info("Sin datos por turno.")
+
+        st.markdown("---")
+
+        # --- TABLA DE DETALLE Y DESCARGA ---
+        st.markdown("### 🔍 Detalle de Registros Filtrados")
+        st.dataframe(df_filtered, use_container_width=True)
+
+        csv_data = df_filtered.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Descargar Datos Filtrados en CSV",
+            data=csv_data,
+            file_name=f"reporte_produccion_{date.today().strftime('%d_%m_%Y')}.csv",
+            mime="text/csv"
+        )
