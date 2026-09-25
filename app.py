@@ -25,14 +25,12 @@ def obtener_ahora_arg():
 # ==============================================================================
 # --- CARGA DINÁMICA DE LA BASE DE DATOS MAESTRA (BD CLIENTES) ---
 # ==============================================================================
-@st.cache_data(ttl=0)  # ttl=0 desactiva el almacenamiento en memoria para refrescar al instante
+@st.cache_data(ttl=0)
 def cargar_raw_data_maestra():
     """Busca dinámicamente la tabla BD CLIENTES en Google Sheets y descarga sus datos activos."""
     try:
-        # Descarga el contenido completo sin asumir posición fija
         df_raw = pd.read_csv(SHEET_CLIENTES_CSV_URL, header=None)
 
-        # Buscar la fila que contiene la palabra "CATEGORIA"
         hdr_idx = None
         for i, row in df_raw.iterrows():
             row_vals = row.astype(str).str.strip().str.upper().values
@@ -46,16 +44,13 @@ def cargar_raw_data_maestra():
             df = df_raw.iloc[hdr_idx + 1:].copy()
             df.columns = df_raw.iloc[hdr_idx].values
 
-        # Limpiar encabezados
         df.columns = df.columns.astype(str).str.strip().str.upper()
 
-        # Filtrar celdas/filas vacías
         if "CLIENTE" in df.columns:
             df = df[df["CLIENTE"].dropna().astype(str).str.strip() != ""]
         if "PRODUCTO" in df.columns:
             df = df[df["PRODUCTO"].dropna().astype(str).str.strip() != ""]
 
-        # Convertir columnas numéricas
         for col in ["UNIDADES", "VIDA UTIL"]:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
@@ -148,22 +143,11 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
     except Exception:
         return False
 
-def guardar_planning_en_sheets(datos_planning):
-    """Envía la información formateada para la pestaña BD PLANNING (A -> H)"""
-    registro = {
-        "Fecha_Plan": str(datos_planning.get("Fecha_Plan", "")),
-        "OP_Num": datos_planning.get("OP_Num", ""),
-        "Turno": datos_planning.get("Turno", ""),
-        "Categoria": datos_planning.get("Categoria", ""),
-        "Cliente": datos_planning.get("Cliente", ""),
-        "Producto": datos_planning.get("Producto", ""),
-        "Detalle_Cantidad": datos_planning.get("Detalle_Cantidad", 0),
-        "Fecha_Carga": str(datos_planning.get("Fecha_Carga", ""))
-    }
-
+def guardar_planning_en_sheets_multiples(registros_planning):
+    """Envía múltiples registros de turnos a la pestaña BD PLANNING (A -> H)"""
     payload = {
         "hoja": "BD PLANNING",
-        "registros": [registro]
+        "registros": registros_planning
     }
 
     try:
@@ -397,9 +381,9 @@ with st.expander("🤖 **Asistente de Ayuda Golomaster** - Haz clic aquí para d
         st.info(
             "**Para cargar el cronograma de trabajo:**\n"
             "1. Entra al **Módulo Planning** usando la clave `golomaster`.\n"
-            "2. Selecciona la fecha futura y el Turno.\n"
-            "3. El sistema sugerirá el siguiente número de OP automáticamente.\n"
-            "4. Elige Categoría, Cliente y Producto. Si es por bultos, ingresa las unidades y el sistema calculará automáticamente las cajas y masas necesarias."
+            "2. Selecciona la fecha futura y distribuye las cantidades por **Turno M, T y N**.\n"
+            "3. El sistema sugerirá el número de OP automáticamente.\n"
+            "4. Elige Categoría, Cliente y Producto. El sistema calculará automáticamente las cajas y masas necesarias acumuladas."
         )
     elif pregunta == "⚖️ ¿Cómo calcular mermas y scrap?":
         st.info(
@@ -846,13 +830,12 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         st.subheader("📋 Configuración del Plan de Producción")
         
-        col_c1, col_c2, col_c3 = st.columns(3)
+        col_c1, col_c2 = st.columns(2)
         with col_c1:
             fecha_plan = st.date_input("Fecha a Planificar", value=fecha_plan_default, key="fecha_plan")
-            op_plan = st.text_input("OP N° (Sugerida automática)", value=sug_op, key="op_plan").strip()
 
         with col_c2:
-            turno_plan = st.selectbox("Turno de Trabajo", ["M", "T", "N"], key="turno_plan")
+            op_plan = st.text_input("OP N° (Sugerida automática)", value=sug_op, key="op_plan").strip()
 
         todas_las_ops = obtener_todas_las_ops_existentes()
         op_planning_duplicada = False
@@ -895,86 +878,106 @@ elif st.session_state["modulo_activo"] == "Planning":
             es_bulto = str(fila_item.get("BULTO", "")).upper() == "SI"
             unidades_por_bulto = int(fila_item.get("UNIDADES", 0)) if es_bulto else 0
 
-            col_p1, col_p2, col_p3 = st.columns([1.5, 1.5, 2.0])
-
-            with col_p1:
-                st.write(f"**Categoría:** {cat_sel}")
-                st.write(f"**Cliente:** {cli_sel}")
-                st.write(f"**Producto:** {prod_sel}")
-
-            with col_p2:
-                st.write(f"**Aplica Bulto:** {fila_item.get('BULTO', '-')}")
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                st.write(f"**Categoría:** {cat_sel} | **Cliente:** {cli_sel} | **Producto:** {prod_sel}")
+            with col_info2:
                 if es_bulto:
-                    st.write(f"**Unidades por Bulto / Caja:** {unidades_por_bulto}")
+                    st.write(f"**Aplica Bulto:** SI | **Unidades por Bulto / Caja:** {unidades_por_bulto}")
                 else:
                     st.write("**Unidad de Medida:** KG")
 
-            with col_p3:
-                if es_bulto:
-                    cant_unidades_ingresadas = st.number_input(
-                        "4. CANTIDAD DE BARRAS / UNIDADES A PRODUCIR", 
-                        min_value=0, 
-                        step=100, 
-                        value=0, 
-                        key="cant_unid_plan"
-                    )
-                    cajas_calculadas = (cant_unidades_ingresadas / unidades_por_bulto) if unidades_por_bulto > 0 else 0.0
-                    
-                    if cli_sel == "INTEGRA":
-                        kg_totales = cant_unidades_ingresadas * 0.035
-                        masas_calculadas = kg_totales / 150.0
-                        
-                        col_m1, col_m2 = st.columns(2)
-                        with col_m1:
-                            st.metric(label="EQUIVALENTE EN CAJAS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                        with col_m2:
-                            st.metric(label="EQUIVALENTE EN MASAS (150 KG)", value=f"{masas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                            
-                        total_resumen = f"{cajas_calculadas:,.2f} Cajas ({cant_unidades_ingresadas:,} U) | {masas_calculadas:,.2f} Masas ({kg_totales:,.2f} KG)"
-                    else:
-                        st.metric(label="EQUIVALENTE EN CAJAS / BULTOS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-                        total_resumen = f"{cajas_calculadas:,.2f} Cajas ({cant_unidades_ingresadas:,} U)"
+            st.markdown("##### 4. CANTIDADES A PRODUCIR POR TURNO")
+            col_t_m, col_t_t, col_t_n = st.columns(3)
+
+            if es_bulto:
+                with col_t_m:
+                    cant_m = st.number_input("☀️ Turno Mañana (M) - Unidades", min_value=0, step=100, value=0, key="cant_m_plan")
+                with col_t_t:
+                    cant_t = st.number_input("⛅ Turno Tarde (T) - Unidades", min_value=0, step=100, value=0, key="cant_t_plan")
+                with col_t_n:
+                    cant_n = st.number_input("🌙 Turno Noche (N) - Unidades", min_value=0, step=100, value=0, key="cant_n_plan")
+
+                total_unidades_ingresadas = cant_m + cant_t + cant_n
+                cajas_calculadas = (total_unidades_ingresadas / unidades_por_bulto) if unidades_por_bulto > 0 else 0.0
+
+                st.markdown("---")
+                if cli_sel == "INTEGRA":
+                    kg_totales = total_unidades_ingresadas * 0.035
+                    masas_calculadas = kg_totales / 150.0
+
+                    col_m1, col_m2, col_m3 = st.columns(3)
+                    with col_m1:
+                        st.metric(label="TOTAL UNIDADES ACUMULADAS", value=f"{total_unidades_ingresadas:,}".replace(",", "."))
+                    with col_m2:
+                        st.metric(label="EQUIVALENTE EN CAJAS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                    with col_m3:
+                        st.metric(label="EQUIVALENTE EN MASAS (150 KG)", value=f"{masas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
                 else:
-                    cant_kg_ingresados = st.number_input(
-                        "4. CANTIDAD A PRODUCIR EN KILOGRAMOS (KG)", 
-                        min_value=0.000, 
-                        step=0.100, 
-                        format="%.3f", 
-                        value=0.000, 
-                        key="cant_kg_plan"
-                    )
-                    st.metric(label="TOTAL KILOGRAMOS (KG)", value=f"{cant_kg_ingresados:.3f} KG")
-                    total_resumen = f"{cant_kg_ingresados:.3f} KG"
+                    col_m1, col_m2 = st.columns(2)
+                    with col_m1:
+                        st.metric(label="TOTAL UNIDADES ACUMULADAS", value=f"{total_unidades_ingresadas:,}".replace(",", "."))
+                    with col_m2:
+                        st.metric(label="EQUIVALENTE EN CAJAS / BULTOS", value=f"{cajas_calculadas:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+            else:
+                with col_t_m:
+                    cant_m = st.number_input("☀️ Turno Mañana (M) - KG", min_value=0.000, step=0.100, format="%.3f", value=0.000, key="cant_m_kg_plan")
+                with col_t_t:
+                    cant_t = st.number_input("⛅ Turno Tarde (T) - KG", min_value=0.000, step=0.100, format="%.3f", value=0.000, key="cant_t_kg_plan")
+                with col_t_n:
+                    cant_n = st.number_input("🌙 Turno Noche (N) - KG", min_value=0.000, step=0.100, format="%.3f", value=0.000, key="cant_n_kg_plan")
+
+                total_kg_ingresados = cant_m + cant_t + cant_n
+                st.markdown("---")
+                st.metric(label="TOTAL KILOGRAMOS ACUMULADOS (KG)", value=f"{total_kg_ingresados:.3f} KG")
 
             st.markdown("---")
             if st.button("➕ Guardar y Enviar Plan a Google Sheets (BD PLANNING)", type="primary", disabled=op_planning_duplicada):
                 if op_plan == "":
                     st.warning("⚠️ Debe especificar un N° de OP.")
+                elif (es_bulto and total_unidades_ingresadas == 0) or (not es_bulto and total_kg_ingresados == 0):
+                    st.warning("⚠️ Debe ingresar una cantidad mayor a 0 en al menos uno de los turnos (M, T o N).")
                 else:
-                    payload_planning = {
-                        "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
-                        "OP_Num": op_plan,
-                        "Turno": turno_plan,
-                        "Categoria": cat_sel,
-                        "Cliente": cli_sel,
-                        "Producto": prod_sel,
-                        "Detalle_Cantidad": total_resumen,
-                        "Fecha_Carga": obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
-                    }
-                    
-                    exito = guardar_planning_en_sheets(payload_planning)
+                    registros_a_guardar = []
+                    fecha_carga_actual = obtener_ahora_arg().strftime("%d/%m/%Y %H:%M")
+
+                    turnos_data = [
+                        ("M", cant_m),
+                        ("T", cant_t),
+                        ("N", cant_n)
+                    ]
+
+                    for t_code, cant_t_val in turnos_data:
+                        if cant_t_val > 0:
+                            if es_bulto:
+                                c_calc_t = (cant_t_val / unidades_por_bulto) if unidades_por_bulto > 0 else 0.0
+                                if cli_sel == "INTEGRA":
+                                    kg_t = cant_t_val * 0.035
+                                    masas_t = kg_t / 150.0
+                                    detalle_t = f"{c_calc_t:,.2f} Cajas ({cant_t_val:,} U) | {masas_t:,.2f} Masas ({kg_t:,.2f} KG)"
+                                else:
+                                    detalle_t = f"{c_calc_t:,.2f} Cajas ({cant_t_val:,} U)"
+                            else:
+                                detalle_t = f"{cant_t_val:.3f} KG"
+
+                            reg_t = {
+                                "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
+                                "OP_Num": op_plan,
+                                "Turno": t_code,
+                                "Categoria": cat_sel,
+                                "Cliente": cli_sel,
+                                "Producto": prod_sel,
+                                "Detalle_Cantidad": detalle_t,
+                                "Fecha_Carga": fecha_carga_actual
+                            }
+                            registros_a_guardar.append(reg_t)
+
+                    exito = guardar_planning_en_sheets_multiples(registros_a_guardar)
                     if exito:
-                        nuevo_plan = {
-                            "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
-                            "OP_Num": op_plan,
-                            "Turno": turno_plan,
-                            "Categoria": cat_sel,
-                            "Cliente": cli_sel,
-                            "Producto": prod_sel,
-                            "Detalle_Cantidad": total_resumen
-                        }
-                        st.session_state["lista_planes"].append(nuevo_plan)
-                        st.success(f"✅ ¡Plan para la OP N° {op_plan} guardado en la solapa 'BD PLANNING' correctamente!")
+                        for r_saved in registros_a_guardar:
+                            st.session_state["lista_planes"].append(r_saved)
+                        st.success(f"✅ ¡Plan para la OP N° {op_plan} registrado en la solapa 'BD PLANNING' para {len(registros_a_guardar)} turno(s) correctamente!")
                         st.rerun()
                     else:
                         st.error("❌ Ocurrió un error al guardar en la base de datos de Google Sheets.")
