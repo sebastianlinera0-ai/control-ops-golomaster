@@ -13,62 +13,46 @@ st.set_page_config(page_title="Control Golomaster V1", layout="wide")
 # Instancia de almacenamiento local
 localS = LocalStorage()
 
-# ==============================================================================
-# --- BASE DE DATOS MAESTRA ---
-# ==============================================================================
-RAW_DATA_MAESTRA = [
-    # BARRITAS - INTEGRA
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR AVELLANA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR MANI", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CACAO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA AFA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "INTEGRA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CACAO AFA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 7},
-    
-    # BARRITAS - ENA
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE GARRA PIÑADA BANANA CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BROWNIE CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BROWNIE CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO CT", "BULTO": "SI", "UNIDADES": 128, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "ENA", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO CM", "BULTO": "SI", "UNIDADES": 64, "VIDA_UTIL": 12},
-    
-    # BARRITAS - DELUX
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR BANANA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR CHOCOLATE", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR COCO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR FRUTILLA", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR MANI", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
-    {"CATEGORIA": "BARRITAS", "CLIENTE": "DELUX", "PRODUCTO": "BARRA DE CHOCOLATE SABOR PISTACHO", "BULTO": "SI", "UNIDADES": 192, "VIDA_UTIL": 12},
-    
-    # GARRAPIÑADAS & MANI CROCANTE
-    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "GOLOMASTER", "PRODUCTO": "GARRAPIÑADA DE MANI X 15", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
-    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "EL 32", "PRODUCTO": "GARRAPIÑADA DE MANI X 5", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
-    {"CATEGORIA": "GARRAPIÑADA ALMENDRA", "CLIENTE": "GOLOMASTER", "PRODUCTO": "GARRAPIÑADA DE ALMENDRA X 15", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
-    {"CATEGORIA": "GARRAPIÑADA MANI", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENVASADO MANI GARRAPIÑADA 50U*80G", "BULTO": "SI", "UNIDADES": 50, "VIDA_UTIL": 8},
-    {"CATEGORIA": "MANI CROCANTE", "CLIENTE": "ARGENFRUT", "PRODUCTO": "GARRAPIÑADA DE MANI X 15", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 8},
-    
-    # ALMENDRAS + CH
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENGORDE - 1", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "CHOCOLATADO -2", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ALISADO - 3", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ABRILLANTADO - 4", "BULTO": "NO", "UNIDADES": 0, "VIDA_UTIL": 0},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "GOLOMASTER", "PRODUCTO": "ENVASADO DE ALMENDRA + CH 36U*80GR", "BULTO": "SI", "UNIDADES": 36, "VIDA_UTIL": 8},
-    {"CATEGORIA": "ALMENDRAS + CH", "CLIENTE": "CHOCOMORA", "PRODUCTO": "ENVASADO DE ALMENDRA + CH 40U*80GR", "BULTO": "SI", "UNIDADES": 40, "VIDA_UTIL": 8}
-]
-
-df_maestro = pd.DataFrame(RAW_DATA_MAESTRA)
-
 # --- CONEXIÓN A GOOGLE SHEETS ---
 WEBAPP_URL = "https://script.google.com/macros/s/AKfycbywDdFRA0GkivkkNk7uDXk6Q3hJkU47-lBZYnd_dz7D16kVF274AVgmXejyt2hF3Na_/exec"
 SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/export?format=csv"
 SHEET_PLANNING_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/gviz/tq?tqx=out:csv&sheet=BD%20PLANNING"
+SHEET_CLIENTES_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHLSTWOMAAMD960ow_-Gj-AvsI9XC_lc/gviz/tq?tqx=out:csv&sheet=BD%20CLIENTES"
 
 def obtener_ahora_arg():
     return datetime.utcnow() - timedelta(hours=3)
+
+# ==============================================================================
+# --- CARGA DINÁMICA DE LA BASE DE DATOS MAESTRA (BD CLIENTES) ---
+# ==============================================================================
+@st.cache_data(ttl=180)  # Se actualiza automáticamente cada 3 minutos
+def cargar_raw_data_maestra():
+    """Lee la pestaña BD CLIENTES desde Google Sheets desde la fila 1 hasta la última con datos."""
+    try:
+        df = pd.read_csv(SHEET_CLIENTES_CSV_URL)
+        df.columns = df.columns.str.strip()  # Limpiar espacios en los nombres de las columnas
+        
+        # Filtrar filas vacías
+        if "CLIENTE" in df.columns:
+            df = df[df["CLIENTE"].astype(str).str.strip() != ""]
+        if "PRODUCTO" in df.columns:
+            df = df[df["PRODUCTO"].astype(str).str.strip() != ""]
+            
+        # Convertir tipos de datos
+        for col in ["UNIDADES", "VIDA UTIL"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
+                
+        if "BULTO" in df.columns:
+            df["BULTO"] = df["BULTO"].astype(str).str.upper().str.strip()
+            
+        return df.reset_index(drop=True)
+    except Exception as e:
+        st.error(f"⚠️ Error al leer la solapa BD CLIENTES: {e}")
+        # Retorno de contingencia básico si falla la red
+        return pd.DataFrame(columns=["CATEGORIA", "CLIENTE", "PRODUCTO", "BULTO", "UNIDADES", "VIDA UTIL"])
+
+df_maestro = cargar_raw_data_maestra()
 
 def cargar_historial():
     try:
@@ -85,73 +69,10 @@ def cargar_historial_planning():
         return pd.DataFrame()
 
 # ==============================================================================
-# --- ASISTENTE DE AYUDA INTERACTIVO (100% GRATIS) ---
-# ==============================================================================
-def renderizar_asistente_ayuda():
-    with st.sidebar:
-        st.markdown("---")
-        st.markdown("### 🤖 Asistente de Ayuda Golomaster")
-        st.caption("Guía rápida interactiva paso a paso")
-
-        pregunta = st.selectbox(
-            "¿En qué puedo ayudarte hoy?",
-            [
-                "Seleccionar una consulta...",
-                "📝 ¿Cómo ingresar una Orden de Producción (OP)?",
-                "🏷️ ¿Cómo generar e imprimir etiquetas?",
-                "⚠️ ¿Por qué me aparece 'OP BLOQUEADA'?",
-                "📅 ¿Cómo planificar en el Módulo Planning?",
-                "⚖️ ¿Cómo calcular mermas y scrap?"
-            ],
-            key="asistente_select"
-        )
-
-        if pregunta == "📝 ¿Cómo ingresar una Orden de Producción (OP)?":
-            st.info(
-                "**Paso a Paso para cargar una OP:**\n"
-                "1. **Fecha de la OP:** Selecciona la fecha correspondiente.\n"
-                "2. **OP N°:** Ingresa un número único (ej: 105).\n"
-                "3. **Cliente y Producto:** Selecciona de las listas desplegables.\n"
-                "4. **Cantidad Total:** Ingresa las unidades meta a producir.\n"
-                "5. **Carga de Parciales:** Rellena Turno, Responsable, Cantidad producida y Mermas por cada turno trabajado.\n"
-                "6. Haz clic en **🔒 Cerrar y Guardar OP** al finalizar."
-            )
-        elif pregunta == "🏷️ ¿Cómo generar e imprimir etiquetas?":
-            st.info(
-                "**Para imprimir etiquetas del último parcial:**\n"
-                "1. Asegúrate de haber completado la información principal de la OP.\n"
-                "2. Asigna un **Turno** en el parcial que quieres etiquetar.\n"
-                "3. Haz clic en **🏷️ Generar Etiqueta ÚLTIMO Parcial**.\n"
-                "4. Se abrirá la ventana de impresión estándar del sistema."
-            )
-        elif pregunta == "⚠️ ¿Por qué me aparece 'OP BLOQUEADA'?":
-            st.warning(
-                "**OP Duplicada o Bloqueada:**\n"
-                "Significa que ese número de OP ya existe en la base de datos de Google Sheets o fue cerrada previamente.\n\n"
-                "**Solución:** Ingresa un número de OP nuevo o no registrado previamente."
-            )
-        elif pregunta == "📅 ¿Cómo planificar en el Módulo Planning?":
-            st.info(
-                "**Para cargar el cronograma de trabajo:**\n"
-                "1. Entra al **Módulo Planning** usando la clave `golomaster`.\n"
-                "2. Selecciona la fecha futura y el Turno.\n"
-                "3. El sistema sugerirá el siguiente número de OP automáticamente.\n"
-                "4. Elige Categoría, Cliente y Producto. Si es por bultos, ingresa las unidades y el sistema calculará automáticamente las cajas y masas necesarias."
-            )
-        elif pregunta == "⚖️ ¿Cómo calcular mermas y scrap?":
-            st.info(
-                "**Mermas vs Scrap:**\n"
-                "* **Mermas.C:** Pérdida de masa o materia prima en proceso (medido en Kilogramos).\n"
-                "* **Scrap.P:** Producto o empaque descartado o fallado (medido en Kilogramos).\n\n"
-                "Ingresa los valores con decimales (ejemplo: `0.500` para 500 gramos)."
-            )
-
-        st.markdown("---")
-
-# ==============================================================================
-# --- FUNCIONES DE GUARDADO ---
+# --- FUNCIONES DE GUARDADO RESTRUCTURADAS ---
 # ==============================================================================
 def guardar_op_en_sheets(datos_op, filas_parciales):
+    """Envía la información formateada para la pestaña BD PRODU (A -> Q)"""
     registros = []
     parciales_validos = [f for f in filas_parciales if f.get("Cantidad", 0) > 0 or f.get("Turno", "") != "" or f.get("Responsable", "") != ""]
 
@@ -199,7 +120,10 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
             }
             registros.append(registro)
 
-    payload = {"hoja": "BD PRODU", "registros": registros}
+    payload = {
+        "hoja": "BD PRODU",
+        "registros": registros
+    }
 
     try:
         response = requests.post(WEBAPP_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"}, allow_redirects=True)
@@ -208,6 +132,7 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
         return False
 
 def guardar_planning_en_sheets(datos_planning):
+    """Envía la información formateada para la pestaña BD PLANNING (A -> H)"""
     registro = {
         "Fecha_Plan": str(datos_planning.get("Fecha_Plan", "")),
         "OP_Num": datos_planning.get("OP_Num", ""),
@@ -219,7 +144,10 @@ def guardar_planning_en_sheets(datos_planning):
         "Fecha_Carga": str(datos_planning.get("Fecha_Carga", ""))
     }
 
-    payload = {"hoja": "BD PLANNING", "registros": [registro]}
+    payload = {
+        "hoja": "BD PLANNING",
+        "registros": [registro]
+    }
 
     try:
         response = requests.post(WEBAPP_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"}, allow_redirects=True)
@@ -317,9 +245,6 @@ def renderizar_cronograma_semanal():
                 df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
                 st.dataframe(df_vacio, use_container_width=True, hide_index=True)
 
-# Renderizar Asistente en la barra lateral
-renderizar_asistente_ayuda()
-
 # --- NAVEGACIÓN Y SOLAPAS ---
 if "modulo_activo" not in st.session_state:
     st.session_state["modulo_activo"] = "Producción"
@@ -368,6 +293,71 @@ with col_nav4:
     if st.button("📊 Módulo Analítica", type=btn_analitica_type, use_container_width=True):
         st.session_state["modulo_activo"] = "Analítica"
         st.rerun()
+
+# ==============================================================================
+# 🤖 ASISTENTE DE AYUDA (Fijo en la parte superior)
+# ==============================================================================
+st.write("")
+with st.expander("🤖 **Asistente de Ayuda Golomaster** - Haz clic aquí para desplegar guías paso a paso", expanded=False):
+    pregunta = st.selectbox(
+        "¿En qué puedo ayudarte hoy?",
+        [
+            "Seleccionar una consulta...",
+            "📝 ¿Cómo ingresar una Orden de Producción (OP)?",
+            "🏷️ ¿Cómo generar e imprimir etiquetas?",
+            "⚠️ ¿Por qué me aparece 'OP BLOQUEADA'?",
+            "📅 ¿Cómo planificar en el Módulo Planning?",
+            "⚖️ ¿Cómo calcular mermas y scrap?",
+            "🔄 ¿Cómo actualizar Clientes o Productos?"
+        ],
+        key="asistente_select_top"
+    )
+
+    if pregunta == "📝 ¿Cómo ingresar una Orden de Producción (OP)?":
+        st.info(
+            "**Paso a Paso para cargar una OP:**\n"
+            "1. **Fecha de la OP:** Selecciona la fecha correspondiente.\n"
+            "2. **OP N°:** Ingresa un número único (ej: 105).\n"
+            "3. **Cliente y Producto:** Selecciona de las listas desplegables.\n"
+            "4. **Cantidad Total:** Ingresa las unidades meta a producir.\n"
+            "5. **Carga de Parciales:** Rellena Turno, Responsable, Cantidad producida y Mermas por cada turno trabajado.\n"
+            "6. Haz clic en **🔒 Cerrar y Guardar OP** al finalizar."
+        )
+    elif pregunta == "🏷️ ¿Cómo generar e imprimir etiquetas?":
+        st.info(
+            "**Para imprimir etiquetas del último parcial:**\n"
+            "1. Asegúrate de haber completado la información principal de la OP.\n"
+            "2. Asigna un **Turno** en el parcial que quieres etiquetar.\n"
+            "3. Haz clic en **🏷️ Generar Etiqueta ÚLTIMO Parcial**.\n"
+            "4. Se abrirá la ventana de impresión estándar del sistema."
+        )
+    elif pregunta == "⚠️ ¿Por qué me aparece 'OP BLOQUEADA'?":
+        st.warning(
+            "**OP Duplicada o Bloqueada:**\n"
+            "Significa que ese número de OP ya existe en la base de datos de Google Sheets o fue cerrada previamente.\n\n"
+            "**Solución:** Ingresa un número de OP nuevo o no registrado previamente."
+        )
+    elif pregunta == "📅 ¿Cómo planificar en el Módulo Planning?":
+        st.info(
+            "**Para cargar el cronograma de trabajo:**\n"
+            "1. Entra al **Módulo Planning** usando la clave `golomaster`.\n"
+            "2. Selecciona la fecha futura y el Turno.\n"
+            "3. El sistema sugerirá el siguiente número de OP automáticamente.\n"
+            "4. Elige Categoría, Cliente y Producto. Si es por bultos, ingresa las unidades y el sistema calculará automáticamente las cajas y masas necesarias."
+        )
+    elif pregunta == "⚖️ ¿Cómo calcular mermas y scrap?":
+        st.info(
+            "**Mermas vs Scrap:**\n"
+            "* **Mermas.C:** Pérdida de masa o materia prima en proceso (medido en Kilogramos).\n"
+            "* **Scrap.P:** Producto o empaque descartado o fallado (medido en Kilogramos).\n\n"
+            "Ingresa los valores con decimales (ejemplo: `0.500` para 500 gramos)."
+        )
+    elif pregunta == "🔄 ¿Cómo actualizar Clientes o Productos?":
+        st.info(
+            "**Base de Datos Maestra:**\n"
+            "Los desplegables se alimentan directamente de la solapa **BD CLIENTES** de tu archivo Google Sheets.\n"
+            "Cualquier cambio, cliente nuevo o vida útil cargada allí se actualizará automáticamente en esta app."
+        )
 
 st.markdown("---")
 
@@ -441,14 +431,14 @@ if st.session_state["modulo_activo"] == "Producción":
         num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
 
-    lista_clientes_prod = [""] + sorted(df_maestro["CLIENTE"].unique().tolist())
+    lista_clientes_prod = [""] + sorted(df_maestro["CLIENTE"].unique().tolist()) if not df_maestro.empty else [""]
     cli_guardado_prod = st.session_state.get("cliente_select_prod", "")
     idx_cli_prod = lista_clientes_prod.index(cli_guardado_prod) if cli_guardado_prod in lista_clientes_prod else 0
 
     with col2:
         cliente = st.selectbox("CLIENTE", lista_clientes_prod, index=idx_cli_prod, key="cliente_select_prod")
         
-        if cliente != "":
+        if cliente != "" and not df_maestro.empty:
             prods_filtrados = df_maestro[df_maestro["CLIENTE"] == cliente]["PRODUCTO"].unique().tolist()
             lista_productos_prod = [""] + sorted(prods_filtrados)
         else:
@@ -459,10 +449,10 @@ if st.session_state["modulo_activo"] == "Producción":
         producto = st.selectbox("PRODUCTO", lista_productos_prod, index=idx_prod_p, key="producto_select_prod")
 
     vida_util_meses = 0
-    if cliente != "" and producto != "":
+    if cliente != "" and producto != "" and not df_maestro.empty:
         match_item = df_maestro[(df_maestro["CLIENTE"] == cliente) & (df_maestro["PRODUCTO"] == producto)]
-        if not match_item.empty:
-            vida_util_meses = int(match_item.iloc[0]["VIDA_UTIL"])
+        if not match_item.empty and "VIDA UTIL" in match_item.columns:
+            vida_util_meses = int(match_item.iloc[0]["VIDA UTIL"])
 
     with col3:
         if cliente != "" and producto != "":
@@ -818,10 +808,10 @@ elif st.session_state["modulo_activo"] == "Planning":
         st.markdown("---")
         st.markdown("### 🔍 Selección de Producto a Planificar")
 
-        categorias_disponibles = [""] + sorted(df_maestro["CATEGORIA"].unique().tolist())
+        categorias_disponibles = [""] + sorted(df_maestro["CATEGORIA"].unique().tolist()) if not df_maestro.empty else [""]
         cat_sel = st.selectbox("1. CATEGORÍA", categorias_disponibles, key="plan_cat_select")
 
-        if cat_sel != "":
+        if cat_sel != "" and not df_maestro.empty:
             df_cat = df_maestro[df_maestro["CATEGORIA"] == cat_sel]
             clientes_disponibles = [""] + sorted(df_cat["CLIENTE"].unique().tolist())
         else:
@@ -829,7 +819,7 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         cli_sel = st.selectbox("2. CLIENTE", clientes_disponibles, key="plan_cli_select")
 
-        if cat_sel != "" and cli_sel != "":
+        if cat_sel != "" and cli_sel != "" and not df_maestro.empty:
             df_prod = df_maestro[(df_maestro["CATEGORIA"] == cat_sel) & (df_maestro["CLIENTE"] == cli_sel)]
             productos_disponibles = [""] + sorted(df_prod["PRODUCTO"].unique().tolist())
         else:
@@ -839,15 +829,15 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         st.markdown("---")
 
-        if cat_sel != "" and cli_sel != "" and prod_sel != "":
+        if cat_sel != "" and cli_sel != "" and prod_sel != "" and not df_maestro.empty:
             fila_item = df_maestro[
                 (df_maestro["CATEGORIA"] == cat_sel) & 
                 (df_maestro["CLIENTE"] == cli_sel) & 
                 (df_maestro["PRODUCTO"] == prod_sel)
             ].iloc[0]
 
-            es_bulto = fila_item["BULTO"] == "SI"
-            unidades_por_bulto = int(fila_item["UNIDADES"]) if es_bulto else 0
+            es_bulto = str(fila_item.get("BULTO", "")).upper() == "SI"
+            unidades_por_bulto = int(fila_item.get("UNIDADES", 0)) if es_bulto else 0
 
             col_p1, col_p2, col_p3 = st.columns([1.5, 1.5, 2.0])
 
@@ -857,7 +847,7 @@ elif st.session_state["modulo_activo"] == "Planning":
                 st.write(f"**Producto:** {prod_sel}")
 
             with col_p2:
-                st.write(f"**Aplica Bulto:** {fila_item['BULTO']}")
+                st.write(f"**Aplica Bulto:** {fila_item.get('BULTO', '-')}")
                 if es_bulto:
                     st.write(f"**Unidades por Bulto / Caja:** {unidades_por_bulto}")
                 else:
