@@ -205,11 +205,20 @@ def estilar_celda_masas(val):
         return 'color: #ffff00; font-weight: bold; background-color: #262626;'
     return ''
 
+# ==============================================================================
+# --- CRONOGRAMA SEMANAL Y DE PRÓXIMA SEMANA ---
+# ==============================================================================
 def renderizar_cronograma_semanal():
     dias_nombre = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
     hoy = obtener_ahora_arg().date()
-    inicio_semana = hoy - timedelta(days=hoy.weekday())
-    fechas_semana = [inicio_semana + timedelta(days=i) for i in range(6)]
+    
+    # Semana actual
+    inicio_semana_actual = hoy - timedelta(days=hoy.weekday())
+    fechas_semana_actual = [inicio_semana_actual + timedelta(days=i) for i in range(6)]
+    
+    # Próxima semana
+    inicio_semana_prox = inicio_semana_actual + timedelta(days=7)
+    fechas_semana_prox = [inicio_semana_prox + timedelta(days=i) for i in range(6)]
     
     df_p = cargar_historial_planning()
     planes_consolidadosa = []
@@ -236,17 +245,47 @@ def renderizar_cronograma_semanal():
                 "CANTIDAD": str(p.get("Detalle_Cantidad", "")).strip()
             })
 
-    st.markdown("##### 📅 CRONOGRAMA SEMANAL DE PLANIFICACIÓN")
-    cols = st.columns(6)
+    # --- 1. BLOQUE SEMANA ACTUAL ---
+    st.markdown("##### 📅 CRONOGRAMA SEMANAL (SEMANA ACTUAL)")
+    cols_act = st.columns(6)
     
-    for idx, f_date in enumerate(fechas_semana):
+    for idx, f_date in enumerate(fechas_semana_actual):
         f_str = f_date.strftime("%d/%m/%Y")
         nom_dia = f"{dias_nombre[idx]} {f_date.strftime('%d/%m/%y')}"
         
-        with cols[idx]:
+        with cols_act[idx]:
             st.markdown(
                 f"""
                 <div style="background-color: #ffff00; color: #000000; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #000; font-size: 13px; margin-bottom: 5px;">
+                    {nom_dia}
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            items_dia = [it for it in planes_consolidadosa if it["Fecha_Plan"] == f_str or it["Fecha_Plan"] == f_date.strftime("%d/%m/%Y")]
+            
+            if items_dia:
+                df_dia = pd.DataFrame(items_dia)[["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"]]
+                df_styled = df_dia.style.map(estilar_celda_masas, subset=['CANTIDAD'])
+                st.dataframe(df_styled, use_container_width=True, hide_index=True)
+            else:
+                df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
+                st.dataframe(df_vacio, use_container_width=True, hide_index=True)
+
+    st.write("")
+
+    # --- 2. BLOQUE PRÓXIMA SEMANA ---
+    st.markdown("##### 📅 CRONOGRAMA SEMANAL (PRÓXIMA SEMANA)")
+    cols_prox = st.columns(6)
+    
+    for idx, f_date in enumerate(fechas_semana_prox):
+        f_str = f_date.strftime("%d/%m/%Y")
+        nom_dia = f"{dias_nombre[idx]} {f_date.strftime('%d/%m/%y')}"
+        
+        with cols_prox[idx]:
+            st.markdown(
+                f"""
+                <div style="background-color: #00d26a; color: #000000; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #000; font-size: 13px; margin-bottom: 5px;">
                     {nom_dia}
                 </div>
                 """, 
