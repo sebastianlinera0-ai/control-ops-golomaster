@@ -25,31 +25,48 @@ def obtener_ahora_arg():
 # ==============================================================================
 # --- CARGA DINÁMICA DE LA BASE DE DATOS MAESTRA (BD CLIENTES) ---
 # ==============================================================================
-@st.cache_data(ttl=180)  # Se actualiza automáticamente cada 3 minutos
+@st.cache_data(ttl=0)  # ttl=0 desactiva el almacenamiento en memoria para refrescar al instante
 def cargar_raw_data_maestra():
-    """Lee la pestaña BD CLIENTES desde Google Sheets desde la fila 1 hasta la última con datos."""
+    """Busca dinámicamente la tabla BD CLIENTES en Google Sheets y descarga sus datos activos."""
     try:
-        df = pd.read_csv(SHEET_CLIENTES_CSV_URL)
-        df.columns = df.columns.str.strip()  # Limpiar espacios en los nombres de las columnas
-        
-        # Filtrar filas vacías
+        # Descarga el contenido completo sin asumir posición fija
+        df_raw = pd.read_csv(SHEET_CLIENTES_CSV_URL, header=None)
+
+        # Buscar la fila que contiene la palabra "CATEGORIA"
+        hdr_idx = None
+        for i, row in df_raw.iterrows():
+            row_vals = row.astype(str).str.strip().str.upper().values
+            if "CATEGORIA" in row_vals:
+                hdr_idx = i
+                break
+
+        if hdr_idx is None:
+            df = pd.read_csv(SHEET_CLIENTES_CSV_URL)
+        else:
+            df = df_raw.iloc[hdr_idx + 1:].copy()
+            df.columns = df_raw.iloc[hdr_idx].values
+
+        # Limpiar encabezados
+        df.columns = df.columns.astype(str).str.strip().str.upper()
+
+        # Filtrar celdas/filas vacías
         if "CLIENTE" in df.columns:
-            df = df[df["CLIENTE"].astype(str).str.strip() != ""]
+            df = df[df["CLIENTE"].dropna().astype(str).str.strip() != ""]
         if "PRODUCTO" in df.columns:
-            df = df[df["PRODUCTO"].astype(str).str.strip() != ""]
-            
-        # Convertir tipos de datos
+            df = df[df["PRODUCTO"].dropna().astype(str).str.strip() != ""]
+
+        # Convertir columnas numéricas
         for col in ["UNIDADES", "VIDA UTIL"]:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
-                
+
         if "BULTO" in df.columns:
             df["BULTO"] = df["BULTO"].astype(str).str.upper().str.strip()
-            
+
         return df.reset_index(drop=True)
+
     except Exception as e:
-        st.error(f"⚠️ Error al leer la solapa BD CLIENTES: {e}")
-        # Retorno de contingencia básico si falla la red
+        st.error(f"⚠️ Error al conectar con la solapa 'BD CLIENTES': {e}")
         return pd.DataFrame(columns=["CATEGORIA", "CLIENTE", "PRODUCTO", "BULTO", "UNIDADES", "VIDA UTIL"])
 
 df_maestro = cargar_raw_data_maestra()
@@ -431,14 +448,14 @@ if st.session_state["modulo_activo"] == "Producción":
         num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
 
-    lista_clientes_prod = [""] + sorted(df_maestro["CLIENTE"].unique().tolist()) if not df_maestro.empty else [""]
+    lista_clientes_prod = [""] + sorted(df_maestro["CLIENTE"].unique().tolist()) if not df_maestro.empty and "CLIENTE" in df_maestro.columns else [""]
     cli_guardado_prod = st.session_state.get("cliente_select_prod", "")
     idx_cli_prod = lista_clientes_prod.index(cli_guardado_prod) if cli_guardado_prod in lista_clientes_prod else 0
 
     with col2:
         cliente = st.selectbox("CLIENTE", lista_clientes_prod, index=idx_cli_prod, key="cliente_select_prod")
         
-        if cliente != "" and not df_maestro.empty:
+        if cliente != "" and not df_maestro.empty and "CLIENTE" in df_maestro.columns:
             prods_filtrados = df_maestro[df_maestro["CLIENTE"] == cliente]["PRODUCTO"].unique().tolist()
             lista_productos_prod = [""] + sorted(prods_filtrados)
         else:
@@ -449,7 +466,7 @@ if st.session_state["modulo_activo"] == "Producción":
         producto = st.selectbox("PRODUCTO", lista_productos_prod, index=idx_prod_p, key="producto_select_prod")
 
     vida_util_meses = 0
-    if cliente != "" and producto != "" and not df_maestro.empty:
+    if cliente != "" and producto != "" and not df_maestro.empty and "CLIENTE" in df_maestro.columns and "PRODUCTO" in df_maestro.columns:
         match_item = df_maestro[(df_maestro["CLIENTE"] == cliente) & (df_maestro["PRODUCTO"] == producto)]
         if not match_item.empty and "VIDA UTIL" in match_item.columns:
             vida_util_meses = int(match_item.iloc[0]["VIDA UTIL"])
@@ -808,10 +825,10 @@ elif st.session_state["modulo_activo"] == "Planning":
         st.markdown("---")
         st.markdown("### 🔍 Selección de Producto a Planificar")
 
-        categorias_disponibles = [""] + sorted(df_maestro["CATEGORIA"].unique().tolist()) if not df_maestro.empty else [""]
+        categorias_disponibles = [""] + sorted(df_maestro["CATEGORIA"].unique().tolist()) if not df_maestro.empty and "CATEGORIA" in df_maestro.columns else [""]
         cat_sel = st.selectbox("1. CATEGORÍA", categorias_disponibles, key="plan_cat_select")
 
-        if cat_sel != "" and not df_maestro.empty:
+        if cat_sel != "" and not df_maestro.empty and "CATEGORIA" in df_maestro.columns and "CLIENTE" in df_maestro.columns:
             df_cat = df_maestro[df_maestro["CATEGORIA"] == cat_sel]
             clientes_disponibles = [""] + sorted(df_cat["CLIENTE"].unique().tolist())
         else:
@@ -819,7 +836,7 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         cli_sel = st.selectbox("2. CLIENTE", clientes_disponibles, key="plan_cli_select")
 
-        if cat_sel != "" and cli_sel != "" and not df_maestro.empty:
+        if cat_sel != "" and cli_sel != "" and not df_maestro.empty and "CATEGORIA" in df_maestro.columns and "CLIENTE" in df_maestro.columns and "PRODUCTO" in df_maestro.columns:
             df_prod = df_maestro[(df_maestro["CATEGORIA"] == cat_sel) & (df_maestro["CLIENTE"] == cli_sel)]
             productos_disponibles = [""] + sorted(df_prod["PRODUCTO"].unique().tolist())
         else:
@@ -829,7 +846,7 @@ elif st.session_state["modulo_activo"] == "Planning":
 
         st.markdown("---")
 
-        if cat_sel != "" and cli_sel != "" and prod_sel != "" and not df_maestro.empty:
+        if cat_sel != "" and cli_sel != "" and prod_sel != "" and not df_maestro.empty and "CATEGORIA" in df_maestro.columns and "CLIENTE" in df_maestro.columns and "PRODUCTO" in df_maestro.columns:
             fila_item = df_maestro[
                 (df_maestro["CATEGORIA"] == cat_sel) & 
                 (df_maestro["CLIENTE"] == cli_sel) & 
