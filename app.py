@@ -23,6 +23,15 @@ SHEET_CLIENTES_CSV_URL = "https://docs.google.com/spreadsheets/d/17He8h4AfTjuMHL
 def obtener_ahora_arg():
     return datetime.utcnow() - timedelta(hours=3)
 
+def limpiar_op_str(val):
+    """Limpia cualquier valor de OP quitándole decimales flotantes como .0 de Sheets/Pandas"""
+    if pd.isna(val) or val is None:
+        return ""
+    s = str(val).strip()
+    if s.endswith(".0"):
+        s = s[:-2]
+    return s
+
 # ==============================================================================
 # --- CARGA DINÁMICA DE LA BASE DE DATOS MAESTRA (BD CLIENTES) ---
 # ==============================================================================
@@ -179,16 +188,16 @@ def obtener_todas_las_ops_existentes():
     df_prod = cargar_historial()
     if not df_prod.empty and "OP_Num" in df_prod.columns:
         for val in df_prod["OP_Num"].dropna().unique():
-            ops.add(str(val).strip())
+            ops.add(limpiar_op_str(val))
             
     df_plan = cargar_historial_planning()
     if not df_plan.empty and "OP_Num" in df_plan.columns:
         for val in df_plan["OP_Num"].dropna().unique():
-            ops.add(str(val).strip())
+            ops.add(limpiar_op_str(val))
             
     if "lista_planes" in st.session_state:
         for p in st.session_state["lista_planes"]:
-            ops.add(str(p.get("OP_Num", "")).strip())
+            ops.add(limpiar_op_str(p.get("OP_Num", "")))
             
     return ops
 
@@ -204,7 +213,7 @@ def obtener_siguiente_op_sugerida():
 def obtener_ops_cerradas_set():
     df = cargar_historial()
     if not df.empty and "OP_Num" in df.columns:
-        return set(df["OP_Num"].dropna().astype(str).str.strip().tolist())
+        return set([limpiar_op_str(val) for val in df["OP_Num"].dropna().tolist()])
     return set()
 
 def estilar_fila_cronograma(row):
@@ -213,9 +222,9 @@ def estilar_fila_cronograma(row):
        - Verde: Guardada localmente / En curso
        - Transparente: Planificada aún sin arrancar
     """
-    op_str = str(row["OP"]).strip()
+    op_str = limpiar_op_str(row["OP"])
     ops_cerradas = obtener_ops_cerradas_set()
-    ops_borrador = list(st.session_state.get("borradores_ops", {}).keys())
+    ops_borrador = [limpiar_op_str(k) for k in st.session_state.get("borradores_ops", {}).keys()]
 
     if op_str in ops_cerradas:
         return ['background-color: #ffd700; color: #000000; font-weight: bold;'] * len(row)
@@ -224,11 +233,11 @@ def estilar_fila_cronograma(row):
     return [''] * len(row)
 
 # ==============================================================================
-# 🔍 BUSCADOR Y SUMATORIA ROBUSTA DE DATOS DESDE BD PLANNING PARA PRODUCCIÓN
+# 🔍 BUSCADOR Y SUMATORIA TOLERANTE A DECIMALES Y TIPOS DE DATOS DE GOOGLE SHEETS
 # ==============================================================================
 def buscar_datos_op_en_planning(op_num_ingresada):
-    """Busca en el historial de Planning o Session State los datos de Cliente, Producto y SUMA TOTAL de cantidades de una OP"""
-    op_clean = str(op_num_ingresada).strip()
+    """Busca en el historial de Planning o Session State los datos de Cliente, Producto y SUMA TOTAL de una OP"""
+    op_clean = limpiar_op_str(op_num_ingresada)
     if not op_clean:
         return None
 
@@ -237,13 +246,13 @@ def buscar_datos_op_en_planning(op_num_ingresada):
     # 1. Buscar en Session State local
     if "lista_planes" in st.session_state:
         for p in st.session_state["lista_planes"]:
-            if str(p.get("OP_Num", "")).strip() == op_clean:
+            if limpiar_op_str(p.get("OP_Num", "")) == op_clean:
                 registros_op.append(p)
 
     # 2. Buscar en la solapa BD PLANNING de Google Sheets
     df_p = cargar_historial_planning()
     if not df_p.empty and "OP_Num" in df_p.columns:
-        df_p["OP_Clean"] = df_p["OP_Num"].astype(str).str.strip()
+        df_p["OP_Clean"] = df_p["OP_Num"].apply(limpiar_op_str)
         sub_df = df_p[df_p["OP_Clean"] == op_clean]
         for _, r in sub_df.iterrows():
             registros_op.append({
@@ -262,21 +271,21 @@ def buscar_datos_op_en_planning(op_num_ingresada):
     for reg in registros_op:
         det = str(reg.get("Detalle_Cantidad", ""))
         
-        # Extraer unidades en formato (X U) o (X.XXX U)
+        # Extraer unidades ej (1.000 U) o (100 U)
         match_unid = re.search(r'\(([\d\.\,]+)\s*U\)', det, re.IGNORECASE)
         if match_unid:
             val_clean = match_unid.group(1).replace(".", "").replace(",", ".")
             cant_total_sumada += float(val_clean)
             continue
 
-        # Extraer kilogramos en formato X KG
+        # Extraer kilogramos ej 150.500 KG
         match_kg = re.search(r'([\d\.\,]+)\s*KG', det, re.IGNORECASE)
         if match_kg:
             val_clean = match_kg.group(1).replace(".", "").replace(",", ".")
             cant_total_sumada += float(val_clean)
             continue
 
-        # Extraer números genéricos
+        # Números genéricos
         num_matches = re.findall(r'[\d\.\,]+', det)
         if num_matches:
             val_clean = num_matches[-1].replace(".", "").replace(",", ".")
@@ -313,7 +322,7 @@ def renderizar_cronograma_semanal():
         for _, r in df_p.iterrows():
             planes_consolidadosa.append({
                 "Fecha_Plan": str(r.get("Fecha_Plan", "")).strip(),
-                "OP": str(r.get("OP_Num", "")).strip(),
+                "OP": limpiar_op_str(r.get("OP_Num", "")),
                 "TURNO": str(r.get("Turno", "")).strip(),
                 "CLIENTE": str(r.get("Cliente", "")).strip(),
                 "PRODUCTO": str(r.get("Producto", "")).strip(),
@@ -324,7 +333,7 @@ def renderizar_cronograma_semanal():
         for p in st.session_state["lista_planes"]:
             planes_consolidadosa.append({
                 "Fecha_Plan": str(p.get("Fecha_Plan", "")).strip(),
-                "OP": str(p.get("OP_Num", "")).strip(),
+                "OP": limpiar_op_str(p.get("OP_Num", "")),
                 "TURNO": str(p.get("Turno", "")).strip(),
                 "CLIENTE": str(p.get("Cliente", "")).strip(),
                 "PRODUCTO": str(p.get("Producto", "")).strip(),
@@ -529,7 +538,8 @@ if st.session_state["modulo_activo"] == "Producción":
     def op_existe(num_op):
         df = cargar_historial()
         if not df.empty and "OP_Num" in df.columns:
-            return str(num_op).strip() in df["OP_Num"].astype(str).str.strip().values
+            op_limpia = limpiar_op_str(num_op)
+            return op_limpia in [limpiar_op_str(v) for v in df["OP_Num"].dropna().values]
         return False
 
     def solicitar_limpieza():
@@ -619,7 +629,8 @@ if st.session_state["modulo_activo"] == "Producción":
 
     with col1:
         fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", fecha_actual_hoy), key="fecha_op")
-        num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
+        num_op_raw = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
+        num_op = limpiar_op_str(num_op_raw)
 
         # AUTOCOMPLETADO Y SINCRONIZACIÓN DE WIDGETS
         if num_op != "" and num_op != st.session_state.get("op_previa_evaluada", ""):
@@ -631,7 +642,7 @@ if st.session_state["modulo_activo"] == "Producción":
                 st.session_state["cant_total"] = datos_planificados["cant_total"]
                 st.session_state["sb_cli_key"] = st.session_state.get("sb_cli_key", 0) + 1
                 st.session_state["sb_prod_key"] = st.session_state.get("sb_prod_key", 0) + 1
-                st.toast(f"✨ OP N° {num_op}: Cargar datos de Planning exitoso.", icon="📋")
+                st.toast(f"✨ OP N° {num_op}: Datos cargados desde Planning con éxito.", icon="📋")
                 st.rerun()
 
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
@@ -991,7 +1002,6 @@ if st.session_state["modulo_activo"] == "Producción":
             }
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
-                # Al cerrarse definitivamente en Google Sheets, eliminamos el borrador local
                 if num_op in st.session_state["borradores_ops"]:
                     del st.session_state["borradores_ops"][num_op]
                 
@@ -1054,7 +1064,7 @@ elif st.session_state["modulo_activo"] == "Planning":
         todas_las_ops = obtener_todas_las_ops_existentes()
         op_planning_duplicada = False
         
-        if op_plan != "" and op_plan in todas_las_ops:
+        if op_plan != "" and limpiar_op_str(op_plan) in todas_las_ops:
             st.error(f"⛔ LA OP N° '{op_plan}' YA FUE REGISTRADA O PLANIFICADA PREVIAMENTE. NO SE PUEDE REPETIR EL NÚMERO DE OP.")
             op_planning_duplicada = True
 
@@ -1177,7 +1187,7 @@ elif st.session_state["modulo_activo"] == "Planning":
 
                             reg_t = {
                                 "Fecha_Plan": fecha_plan.strftime("%d/%m/%Y"),
-                                "OP_Num": op_plan,
+                                "OP_Num": limpiar_op_str(op_plan),
                                 "Turno": t_code,
                                 "Categoria": cat_sel,
                                 "Cliente": cli_sel,
