@@ -3,6 +3,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import requests
 import json
+import re
 from datetime import datetime, date, timedelta
 from dateutil.relativedelta import relativedelta
 from streamlit_local_storage import LocalStorage
@@ -204,6 +205,60 @@ def estilar_celda_masas(val):
     if "Masas" in str(val):
         return 'color: #ffff00; font-weight: bold; background-color: #262626;'
     return ''
+
+# ==============================================================================
+# 🔍 BUSCADOR DE DATOS DESDE BD PLANNING PARA OP
+# ==============================================================================
+def buscar_datos_op_en_planning(op_num_ingresada):
+    """Busca en el historial de Planning o Session State los datos de Cliente, Producto y Cantidad Total de una OP"""
+    op_clean = str(op_num_ingresada).strip()
+    if not op_clean:
+        return None
+
+    # 1. Buscar en Session State local
+    if "lista_planes" in st.session_state:
+        planes_locales = [p for p in st.session_state["lista_planes"] if str(p.get("OP_Num", "")).strip() == op_clean]
+        if planes_locales:
+            cliente = planes_locales[0].get("Cliente", "")
+            producto = planes_locales[0].get("Producto", "")
+            cant_total = 0
+            for p in planes_locales:
+                det = str(p.get("Detalle_Cantidad", ""))
+                # Extrae unidades o kg (ejemplo: '10.00 Cajas (1.000 U)' -> 1000)
+                match = re.search(r'\(([\d\.\,]+)\s*U\)', det)
+                if match:
+                    val_str = match.group(1).replace(".", "").replace(",", ".")
+                    cant_total += int(float(val_str))
+                else:
+                    match_kg = re.search(r'([\d\.\,]+)\s*KG', det)
+                    if match_kg:
+                        val_str = match_kg.group(1).replace(".", "").replace(",", ".")
+                        cant_total += int(float(val_str))
+            return {"cliente": cliente, "producto": producto, "cant_total": cant_total}
+
+    # 2. Buscar en la solapa BD PLANNING de Google Sheets
+    df_p = cargar_historial_planning()
+    if not df_p.empty and "OP_Num" in df_p.columns:
+        df_p["OP_Clean"] = df_p["OP_Num"].astype(str).str.strip()
+        sub_df = df_p[df_p["OP_Clean"] == op_clean]
+        if not sub_df.empty:
+            cliente = str(sub_df.iloc[0].get("Cliente", "")).strip()
+            producto = str(sub_df.iloc[0].get("Producto", "")).strip()
+            cant_total = 0
+            for _, r in sub_df.iterrows():
+                det = str(r.get("Detalle_Cantidad", ""))
+                match = re.search(r'\(([\d\.\,]+)\s*U\)', det)
+                if match:
+                    val_str = match.group(1).replace(".", "").replace(",", ".")
+                    cant_total += int(float(val_str))
+                else:
+                    match_kg = re.search(r'([\d\.\,]+)\s*KG', det)
+                    if match_kg:
+                        val_str = match_kg.group(1).replace(".", "").replace(",", ".")
+                        cant_total += int(float(val_str))
+            return {"cliente": cliente, "producto": producto, "cant_total": cant_total}
+
+    return None
 
 # ==============================================================================
 # --- CRONOGRAMA SEMANAL Y DE PRÓXIMA SEMANA ---
@@ -443,6 +498,7 @@ if st.session_state["modulo_activo"] == "Producción":
         st.session_state["producto_select_prod"] = ""
         st.session_state["cant_total"] = 0
         st.session_state["fecha_op"] = fecha_actual_hoy
+        st.session_state["op_previa_evaluada"] = ""
         
         for i in range(10):
             st.session_state[f"turno_{i}"] = ""
@@ -462,6 +518,7 @@ if st.session_state["modulo_activo"] == "Producción":
             st.session_state["cant_total"] = borrador_dict.get("cant_total", 0)
             st.session_state["cliente_select_prod"] = borrador_dict.get("cliente_select_prod", "")
             st.session_state["producto_select_prod"] = borrador_dict.get("producto_select_prod", "")
+            st.session_state["op_previa_evaluada"] = target_op
             
             f_op_raw = borrador_dict.get("fecha_op", "")
             if isinstance(f_op_raw, str) and f_op_raw != "":
@@ -519,6 +576,18 @@ if st.session_state["modulo_activo"] == "Producción":
     with col1:
         fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", fecha_actual_hoy), key="fecha_op")
         num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
+
+        # AUTOCOMPLETADO DESDE PLANNING
+        if num_op != "" and num_op != st.session_state.get("op_previa_evaluada", ""):
+            st.session_state["op_previa_evaluada"] = num_op
+            datos_planificados = buscar_datos_op_en_planning(num_op)
+            if datos_planificados:
+                st.session_state["cliente_select_prod"] = datos_planificados["cliente"]
+                st.session_state["producto_select_prod"] = datos_planificados["producto"]
+                st.session_state["cant_total"] = datos_planificados["cant_total"]
+                st.toast(f"✨ Datos planificados de la OP N° {num_op} cargados automáticamente.", icon="📋")
+                st.rerun()
+
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
 
     lista_clientes_prod = [""] + sorted(df_maestro["CLIENTE"].unique().tolist()) if not df_maestro.empty and "CLIENTE" in df_maestro.columns else [""]
@@ -857,7 +926,6 @@ if st.session_state["modulo_activo"] == "Producción":
             }
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
-                # Al cerrarse definitivamente, eliminamos la OP de borradores
                 if num_op in st.session_state["borradores_ops"]:
                     del st.session_state["borradores_ops"][num_op]
                 
