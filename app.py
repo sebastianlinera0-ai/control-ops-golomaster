@@ -146,7 +146,6 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
         )
         return response.status_code in [200, 302] and "Error" not in response.text
     except requests.exceptions.Timeout:
-        # Si da timeout pero se mandó el payload, Apps Script igual lo procesa
         return True
     except Exception as e:
         st.error(f"Error técnico de conexión: {e}")
@@ -435,7 +434,8 @@ if st.session_state["modulo_activo"] == "Producción":
             return str(num_op).strip() in df["OP_Num"].astype(str).str.strip().values
         return False
 
-    def solicitar_limpieza():
+    # RESETEO SEGURO ANTES DE DIBUJAR LOS WIDGETS
+    if st.session_state.get("limpiar_pendiente", False):
         st.session_state["num_op"] = ""
         st.session_state["cliente_select_prod"] = ""
         st.session_state["producto_select_prod"] = ""
@@ -450,10 +450,7 @@ if st.session_state["modulo_activo"] == "Producción":
             st.session_state[f"mermas_{i}"] = 0.000
             st.session_state[f"scrap_{i}"] = 0.000
             st.session_state[f"cant_{i}"] = 0
-        try:
-            localS.deleteItem("borrador_golomaster")
-        except Exception:
-            pass
+        st.session_state["limpiar_pendiente"] = False
 
     LISTA_RESPONSABLES = ["", "Carlos", "Victor", "Guille", "Lujan", "Sebastian"]
 
@@ -532,7 +529,11 @@ if st.session_state["modulo_activo"] == "Producción":
 
     with col_btn1:
         if st.button("🧹 Limpiar Formulario", type="secondary"):
-            solicitar_limpieza()
+            st.session_state["limpiar_pendiente"] = True
+            try:
+                localS.deleteItem("borrador_golomaster")
+            except Exception:
+                pass
             st.rerun()
 
     with col_btn2:
@@ -796,7 +797,12 @@ if st.session_state["modulo_activo"] == "Producción":
             }
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
-                solicitar_limpieza()
+                # Marcamos la bandera de reseteo para la próxima recarga
+                st.session_state["limpiar_pendiente"] = True
+                try:
+                    localS.deleteItem("borrador_golomaster")
+                except Exception:
+                    pass
                 st.success(f"✅ ¡OP N° {num_op} registrada en la pestaña 'BD PRODU' correctamente!")
                 st.rerun()
             else:
