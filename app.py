@@ -201,64 +201,83 @@ def obtener_siguiente_op_sugerida():
             
     return str(max(numeros) + 1) if numeros else "100"
 
-def estilar_celda_masas(val):
-    if "Masas" in str(val):
-        return 'color: #ffff00; font-weight: bold; background-color: #262626;'
-    return ''
+def obtener_ops_cerradas_set():
+    df = cargar_historial()
+    if not df.empty and "OP_Num" in df.columns:
+        return set(df["OP_Num"].dropna().astype(str).str.strip().tolist())
+    return set()
+
+def estilar_fila_cronograma(row):
+    """Aplica color según el estado de la OP:
+       - Amarillo: Cerrada en Google Sheets
+       - Verde: Guardada localmente / En curso
+       - Transparente: Planificada aún sin arrancar
+    """
+    op_str = str(row["OP"]).strip()
+    ops_cerradas = obtener_ops_cerradas_set()
+    ops_borrador = list(st.session_state.get("borradores_ops", {}).keys())
+
+    if op_str in ops_cerradas:
+        return ['background-color: #ffd700; color: #000000; font-weight: bold;'] * len(row)
+    elif op_str in ops_borrador:
+        return ['background-color: #28a745; color: #ffffff; font-weight: bold;'] * len(row)
+    return [''] * len(row)
 
 # ==============================================================================
-# 🔍 BUSCADOR DE DATOS DESDE BD PLANNING PARA OP
+# 🔍 BUSCADOR Y SUMATORIA DE DATOS DESDE BD PLANNING PARA PRODUCCIÓN
 # ==============================================================================
 def buscar_datos_op_en_planning(op_num_ingresada):
-    """Busca en el historial de Planning o Session State los datos de Cliente, Producto y Cantidad Total de una OP"""
+    """Busca en el historial de Planning o Session State los datos de Cliente, Producto y SUMA TOTAL de cantidades de una OP"""
     op_clean = str(op_num_ingresada).strip()
     if not op_clean:
         return None
 
+    registros_op = []
+
     # 1. Buscar en Session State local
     if "lista_planes" in st.session_state:
         planes_locales = [p for p in st.session_state["lista_planes"] if str(p.get("OP_Num", "")).strip() == op_clean]
-        if planes_locales:
-            cliente = planes_locales[0].get("Cliente", "")
-            producto = planes_locales[0].get("Producto", "")
-            cant_total = 0
-            for p in planes_locales:
-                det = str(p.get("Detalle_Cantidad", ""))
-                # Extrae unidades o kg (ejemplo: '10.00 Cajas (1.000 U)' -> 1000)
-                match = re.search(r'\(([\d\.\,]+)\s*U\)', det)
-                if match:
-                    val_str = match.group(1).replace(".", "").replace(",", ".")
-                    cant_total += int(float(val_str))
-                else:
-                    match_kg = re.search(r'([\d\.\,]+)\s*KG', det)
-                    if match_kg:
-                        val_str = match_kg.group(1).replace(".", "").replace(",", ".")
-                        cant_total += int(float(val_str))
-            return {"cliente": cliente, "producto": producto, "cant_total": cant_total}
+        registros_op.extend(planes_locales)
 
     # 2. Buscar en la solapa BD PLANNING de Google Sheets
     df_p = cargar_historial_planning()
     if not df_p.empty and "OP_Num" in df_p.columns:
         df_p["OP_Clean"] = df_p["OP_Num"].astype(str).str.strip()
         sub_df = df_p[df_p["OP_Clean"] == op_clean]
-        if not sub_df.empty:
-            cliente = str(sub_df.iloc[0].get("Cliente", "")).strip()
-            producto = str(sub_df.iloc[0].get("Producto", "")).strip()
-            cant_total = 0
-            for _, r in sub_df.iterrows():
-                det = str(r.get("Detalle_Cantidad", ""))
-                match = re.search(r'\(([\d\.\,]+)\s*U\)', det)
-                if match:
-                    val_str = match.group(1).replace(".", "").replace(",", ".")
-                    cant_total += int(float(val_str))
-                else:
-                    match_kg = re.search(r'([\d\.\,]+)\s*KG', det)
-                    if match_kg:
-                        val_str = match_kg.group(1).replace(".", "").replace(",", ".")
-                        cant_total += int(float(val_str))
-            return {"cliente": cliente, "producto": producto, "cant_total": cant_total}
+        for _, r in sub_df.iterrows():
+            registros_op.append({
+                "Cliente": r.get("Cliente", ""),
+                "Producto": r.get("Producto", ""),
+                "Detalle_Cantidad": r.get("Detalle_Cantidad", "")
+            })
 
-    return None
+    if not registros_op:
+        return None
+
+    cliente = str(registros_op[0].get("Cliente", "")).strip()
+    producto = str(registros_op[0].get("Producto", "")).strip()
+    cant_total_sumada = 0.0
+
+    for reg in registros_op:
+        det = str(reg.get("Detalle_Cantidad", ""))
+        
+        # Buscar patrón de unidades (ej: '10.00 Cajas (1.000 U)')
+        match_unid = re.search(r'\(([\d\.\,]+)\s*U\)', det)
+        if match_unid:
+            val_clean = match_unid.group(1).replace(".", "").replace(",", ".")
+            cant_total_sumada += float(val_clean)
+        else:
+            # Buscar patrón de kilogramos (ej: '150.500 KG')
+            match_kg = re.search(r'([\d\.\,]+)\s*KG', det)
+            if match_kg:
+                val_clean = match_kg.group(1).replace(".", "").replace(",", ".")
+                cant_total_sumada += float(val_clean)
+
+    return {
+        "cliente": cliente, 
+        "producto": producto, 
+        "cant_total": int(cant_total_sumada) if cant_total_sumada.is_integer() else cant_total_sumada
+    }
 
 # ==============================================================================
 # --- CRONOGRAMA SEMANAL Y DE PRÓXIMA SEMANA ---
@@ -300,6 +319,15 @@ def renderizar_cronograma_semanal():
                 "CANTIDAD": str(p.get("Detalle_Cantidad", "")).strip()
             })
 
+    # Leyenda de estado de las OPs
+    st.markdown("""
+        <div style="font-size:12px; margin-bottom:10px;">
+            <b>Referencia Cronograma:</b> 
+            <span style="background-color:#ffd700; color:#000; padding:2px 6px; border-radius:3px;">🟡 Guardada / Cerrada</span> 
+            <span style="background-color:#28a745; color:#fff; padding:2px 6px; border-radius:3px; margin-left:8px;">🟢 En Curso (Borrador Local)</span>
+        </div>
+    """, unsafe_allow_html=True)
+
     # --- 1. BLOQUE SEMANA ACTUAL ---
     st.markdown("##### 📅 CRONOGRAMA SEMANAL (SEMANA ACTUAL)")
     cols_act = st.columns(6)
@@ -311,7 +339,7 @@ def renderizar_cronograma_semanal():
         with cols_act[idx]:
             st.markdown(
                 f"""
-                <div style="background-color: #ffff00; color: #000000; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #000; font-size: 13px; margin-bottom: 5px;">
+                <div style="background-color: #333; color: #fff; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #555; font-size: 13px; margin-bottom: 5px;">
                     {nom_dia}
                 </div>
                 """, 
@@ -321,7 +349,7 @@ def renderizar_cronograma_semanal():
             
             if items_dia:
                 df_dia = pd.DataFrame(items_dia)[["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"]]
-                df_styled = df_dia.style.map(estilar_celda_masas, subset=['CANTIDAD'])
+                df_styled = df_dia.style.apply(estilar_fila_cronograma, axis=1)
                 st.dataframe(df_styled, use_container_width=True, hide_index=True)
             else:
                 df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
@@ -340,7 +368,7 @@ def renderizar_cronograma_semanal():
         with cols_prox[idx]:
             st.markdown(
                 f"""
-                <div style="background-color: #00d26a; color: #000000; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #000; font-size: 13px; margin-bottom: 5px;">
+                <div style="background-color: #222; color: #00d26a; font-weight: bold; text-align: center; padding: 6px; border: 1px solid #555; font-size: 13px; margin-bottom: 5px;">
                     {nom_dia}
                 </div>
                 """, 
@@ -350,7 +378,7 @@ def renderizar_cronograma_semanal():
             
             if items_dia:
                 df_dia = pd.DataFrame(items_dia)[["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"]]
-                df_styled = df_dia.style.map(estilar_celda_masas, subset=['CANTIDAD'])
+                df_styled = df_dia.style.apply(estilar_fila_cronograma, axis=1)
                 st.dataframe(df_styled, use_container_width=True, hide_index=True)
             else:
                 df_vacio = pd.DataFrame(columns=["OP", "TURNO", "CLIENTE", "PRODUCTO", "CANTIDAD"])
@@ -555,7 +583,7 @@ if st.session_state["modulo_activo"] == "Producción":
     ops_abiertas = list(st.session_state["borradores_ops"].keys())
     
     if ops_abiertas:
-        st.info("📂 **OPs abiertas en curso sin cerrar:** Utiliza el selector para pausar y cambiar entre órdenes.")
+        st.info("📂 **OPs abiertas en curso sin cerrar:** Utiliza el selector para reanudar la carga.")
         col_b1, col_b2 = st.columns([3, 1])
         with col_b1:
             op_seleccionada_borrador = st.selectbox(
@@ -577,7 +605,7 @@ if st.session_state["modulo_activo"] == "Producción":
         fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", fecha_actual_hoy), key="fecha_op")
         num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
 
-        # AUTOCOMPLETADO DESDE PLANNING
+        # AUTOCOMPLETADO Y SUMATORIA DESDE PLANNING
         if num_op != "" and num_op != st.session_state.get("op_previa_evaluada", ""):
             st.session_state["op_previa_evaluada"] = num_op
             datos_planificados = buscar_datos_op_en_planning(num_op)
@@ -585,7 +613,7 @@ if st.session_state["modulo_activo"] == "Producción":
                 st.session_state["cliente_select_prod"] = datos_planificados["cliente"]
                 st.session_state["producto_select_prod"] = datos_planificados["producto"]
                 st.session_state["cant_total"] = datos_planificados["cant_total"]
-                st.toast(f"✨ Datos planificados de la OP N° {num_op} cargados automáticamente.", icon="📋")
+                st.toast(f"✨ OP N° {num_op}: Cliente, producto y total sumado cargados desde Planning.", icon="📋")
                 st.rerun()
 
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
@@ -663,7 +691,7 @@ if st.session_state["modulo_activo"] == "Producción":
 
             st.session_state["borradores_ops"][num_op] = borrador_item
             st.session_state["limpiar_pendiente"] = True
-            st.toast(f"⏸️ **OP N° {num_op} pausada y guardada en borrador.** Puedes continuar con otra.", icon="💾")
+            st.toast(f"⏸️ **OP N° {num_op} guardada en borrador (Verde en cronograma).**", icon="💾")
             st.rerun()
 
     with col_btn3:
@@ -926,11 +954,12 @@ if st.session_state["modulo_activo"] == "Producción":
             }
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
+                # Al cerrarse definitivamente en Google Sheets, eliminamos el borrador local
                 if num_op in st.session_state["borradores_ops"]:
                     del st.session_state["borradores_ops"][num_op]
                 
                 st.session_state["limpiar_pendiente"] = True
-                st.success(f"✅ ¡OP N° {num_op} registrada en la pestaña 'BD PRODU' y cerrada correctamente!")
+                st.success(f"✅ ¡OP N° {num_op} cerrada en Google Sheets (Marcada en Amarillo en cronograma)!")
                 st.rerun()
             else:
                 st.error("❌ Ocurrió un error al guardar en Google Sheets. Verifique la conexión.")
