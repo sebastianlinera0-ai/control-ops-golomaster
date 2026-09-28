@@ -224,7 +224,7 @@ def estilar_fila_cronograma(row):
     return [''] * len(row)
 
 # ==============================================================================
-# 🔍 BUSCADOR Y SUMATORIA DE DATOS DESDE BD PLANNING PARA PRODUCCIÓN
+# 🔍 BUSCADOR Y SUMATORIA ROBUSTA DE DATOS DESDE BD PLANNING PARA PRODUCCIÓN
 # ==============================================================================
 def buscar_datos_op_en_planning(op_num_ingresada):
     """Busca en el historial de Planning o Session State los datos de Cliente, Producto y SUMA TOTAL de cantidades de una OP"""
@@ -236,8 +236,9 @@ def buscar_datos_op_en_planning(op_num_ingresada):
 
     # 1. Buscar en Session State local
     if "lista_planes" in st.session_state:
-        planes_locales = [p for p in st.session_state["lista_planes"] if str(p.get("OP_Num", "")).strip() == op_clean]
-        registros_op.extend(planes_locales)
+        for p in st.session_state["lista_planes"]:
+            if str(p.get("OP_Num", "")).strip() == op_clean:
+                registros_op.append(p)
 
     # 2. Buscar en la solapa BD PLANNING de Google Sheets
     df_p = cargar_historial_planning()
@@ -261,17 +262,28 @@ def buscar_datos_op_en_planning(op_num_ingresada):
     for reg in registros_op:
         det = str(reg.get("Detalle_Cantidad", ""))
         
-        # Buscar patrón de unidades (ej: '10.00 Cajas (1.000 U)')
-        match_unid = re.search(r'\(([\d\.\,]+)\s*U\)', det)
+        # Extraer unidades en formato (X U) o (X.XXX U)
+        match_unid = re.search(r'\(([\d\.\,]+)\s*U\)', det, re.IGNORECASE)
         if match_unid:
             val_clean = match_unid.group(1).replace(".", "").replace(",", ".")
             cant_total_sumada += float(val_clean)
-        else:
-            # Buscar patrón de kilogramos (ej: '150.500 KG')
-            match_kg = re.search(r'([\d\.\,]+)\s*KG', det)
-            if match_kg:
-                val_clean = match_kg.group(1).replace(".", "").replace(",", ".")
+            continue
+
+        # Extraer kilogramos en formato X KG
+        match_kg = re.search(r'([\d\.\,]+)\s*KG', det, re.IGNORECASE)
+        if match_kg:
+            val_clean = match_kg.group(1).replace(".", "").replace(",", ".")
+            cant_total_sumada += float(val_clean)
+            continue
+
+        # Extraer números genéricos
+        num_matches = re.findall(r'[\d\.\,]+', det)
+        if num_matches:
+            val_clean = num_matches[-1].replace(".", "").replace(",", ".")
+            try:
                 cant_total_sumada += float(val_clean)
+            except Exception:
+                pass
 
     return {
         "cliente": cliente, 
@@ -527,6 +539,8 @@ if st.session_state["modulo_activo"] == "Producción":
         st.session_state["cant_total"] = 0
         st.session_state["fecha_op"] = fecha_actual_hoy
         st.session_state["op_previa_evaluada"] = ""
+        st.session_state["sb_cli_key"] = st.session_state.get("sb_cli_key", 0) + 1
+        st.session_state["sb_prod_key"] = st.session_state.get("sb_prod_key", 0) + 1
         
         for i in range(10):
             st.session_state[f"turno_{i}"] = ""
@@ -547,6 +561,8 @@ if st.session_state["modulo_activo"] == "Producción":
             st.session_state["cliente_select_prod"] = borrador_dict.get("cliente_select_prod", "")
             st.session_state["producto_select_prod"] = borrador_dict.get("producto_select_prod", "")
             st.session_state["op_previa_evaluada"] = target_op
+            st.session_state["sb_cli_key"] = st.session_state.get("sb_cli_key", 0) + 1
+            st.session_state["sb_prod_key"] = st.session_state.get("sb_prod_key", 0) + 1
             
             f_op_raw = borrador_dict.get("fecha_op", "")
             if isinstance(f_op_raw, str) and f_op_raw != "":
@@ -605,7 +621,7 @@ if st.session_state["modulo_activo"] == "Producción":
         fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", fecha_actual_hoy), key="fecha_op")
         num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
 
-        # AUTOCOMPLETADO Y SUMATORIA DESDE PLANNING
+        # AUTOCOMPLETADO Y SINCRONIZACIÓN DE WIDGETS
         if num_op != "" and num_op != st.session_state.get("op_previa_evaluada", ""):
             st.session_state["op_previa_evaluada"] = num_op
             datos_planificados = buscar_datos_op_en_planning(num_op)
@@ -613,18 +629,32 @@ if st.session_state["modulo_activo"] == "Producción":
                 st.session_state["cliente_select_prod"] = datos_planificados["cliente"]
                 st.session_state["producto_select_prod"] = datos_planificados["producto"]
                 st.session_state["cant_total"] = datos_planificados["cant_total"]
-                st.toast(f"✨ OP N° {num_op}: Cliente, producto y total sumado cargados desde Planning.", icon="📋")
+                st.session_state["sb_cli_key"] = st.session_state.get("sb_cli_key", 0) + 1
+                st.session_state["sb_prod_key"] = st.session_state.get("sb_prod_key", 0) + 1
+                st.toast(f"✨ OP N° {num_op}: Cargar datos de Planning exitoso.", icon="📋")
                 st.rerun()
 
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
 
+    # CONFIGURACIÓN DE LISTAS Y SELECCIÓN DE CLIENTE / PRODUCTO
     lista_clientes_prod = [""] + sorted(df_maestro["CLIENTE"].unique().tolist()) if not df_maestro.empty and "CLIENTE" in df_maestro.columns else [""]
     cli_guardado_prod = st.session_state.get("cliente_select_prod", "")
     idx_cli_prod = lista_clientes_prod.index(cli_guardado_prod) if cli_guardado_prod in lista_clientes_prod else 0
 
+    if "sb_cli_key" not in st.session_state:
+        st.session_state["sb_cli_key"] = 0
+    if "sb_prod_key" not in st.session_state:
+        st.session_state["sb_prod_key"] = 0
+
     with col2:
-        cliente = st.selectbox("CLIENTE", lista_clientes_prod, index=idx_cli_prod, key="cliente_select_prod")
-        
+        cliente = st.selectbox(
+            "CLIENTE", 
+            lista_clientes_prod, 
+            index=idx_cli_prod, 
+            key=f"cliente_select_widget_{st.session_state['sb_cli_key']}"
+        )
+        st.session_state["cliente_select_prod"] = cliente
+
         if cliente != "" and not df_maestro.empty and "CLIENTE" in df_maestro.columns:
             prods_filtrados = df_maestro[df_maestro["CLIENTE"] == cliente]["PRODUCTO"].unique().tolist()
             lista_productos_prod = [""] + sorted(prods_filtrados)
@@ -633,7 +663,14 @@ if st.session_state["modulo_activo"] == "Producción":
 
         prod_guardado_prod = st.session_state.get("producto_select_prod", "")
         idx_prod_p = lista_productos_prod.index(prod_guardado_prod) if prod_guardado_prod in lista_productos_prod else 0
-        producto = st.selectbox("PRODUCTO", lista_productos_prod, index=idx_prod_p, key="producto_select_prod")
+
+        producto = st.selectbox(
+            "PRODUCTO", 
+            lista_productos_prod, 
+            index=idx_prod_p, 
+            key=f"producto_select_widget_{st.session_state['sb_prod_key']}"
+        )
+        st.session_state["producto_select_prod"] = producto
 
     vida_util_meses = 0
     if cliente != "" and producto != "" and not df_maestro.empty and "CLIENTE" in df_maestro.columns and "PRODUCTO" in df_maestro.columns:
