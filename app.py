@@ -308,6 +308,9 @@ if "modulo_activo" not in st.session_state:
 if "planning_autenticado" not in st.session_state:
     st.session_state["planning_autenticado"] = False
 
+if "borradores_ops" not in st.session_state:
+    st.session_state["borradores_ops"] = {}
+
 st.markdown(
     """
     <style>
@@ -351,7 +354,7 @@ with col_nav4:
         st.rerun()
 
 # ==============================================================================
-# 🤖 ASISTENTE DE AYUDA (Fijo en la parte superior)
+# 🤖 ASISTENTE DE AYUDA
 # ==============================================================================
 st.write("")
 with st.expander("🤖 **Asistente de Ayuda Golomaster** - Haz clic aquí para desplegar guías paso a paso", expanded=False):
@@ -434,8 +437,7 @@ if st.session_state["modulo_activo"] == "Producción":
             return str(num_op).strip() in df["OP_Num"].astype(str).str.strip().values
         return False
 
-    # RESETEO SEGURO ANTES DE DIBUJAR LOS WIDGETS
-    if st.session_state.get("limpiar_pendiente", False):
+    def solicitar_limpieza():
         st.session_state["num_op"] = ""
         st.session_state["cliente_select_prod"] = ""
         st.session_state["producto_select_prod"] = ""
@@ -450,29 +452,67 @@ if st.session_state["modulo_activo"] == "Producción":
             st.session_state[f"mermas_{i}"] = 0.000
             st.session_state[f"scrap_{i}"] = 0.000
             st.session_state[f"cant_{i}"] = 0
+
+    # APLICAR CARGA DE BORRADOR SELECCIONADO SI EXISTE PENDIENTE
+    if "op_a_cargar" in st.session_state:
+        target_op = st.session_state.pop("op_a_cargar")
+        borrador_dict = st.session_state["borradores_ops"].get(target_op)
+        if borrador_dict:
+            st.session_state["num_op"] = target_op
+            st.session_state["cant_total"] = borrador_dict.get("cant_total", 0)
+            st.session_state["cliente_select_prod"] = borrador_dict.get("cliente_select_prod", "")
+            st.session_state["producto_select_prod"] = borrador_dict.get("producto_select_prod", "")
+            
+            f_op_raw = borrador_dict.get("fecha_op", "")
+            if isinstance(f_op_raw, str) and f_op_raw != "":
+                try:
+                    st.session_state["fecha_op"] = datetime.strptime(f_op_raw, "%Y-%m-%d").date()
+                except Exception:
+                    st.session_state["fecha_op"] = fecha_actual_hoy
+
+            for i in range(10):
+                st.session_state[f"turno_{i}"] = borrador_dict.get(f"turno_{i}", "")
+                st.session_state[f"resp_{i}"] = borrador_dict.get(f"resp_{i}", "")
+                st.session_state[f"lote_{i}"] = borrador_dict.get(f"lote_{i}", "")
+                st.session_state[f"mermas_{i}"] = borrador_dict.get(f"mermas_{i}", 0.000)
+                st.session_state[f"scrap_{i}"] = borrador_dict.get(f"scrap_{i}", 0.000)
+                st.session_state[f"cant_{i}"] = borrador_dict.get(f"cant_{i}", 0)
+                
+                f_inp_raw = borrador_dict.get(f"fecha_input_{i}", "")
+                if isinstance(f_inp_raw, str) and f_inp_raw != "":
+                    try:
+                        st.session_state[f"fecha_input_{i}"] = datetime.strptime(f_inp_raw, "%Y-%m-%d").date()
+                    except Exception:
+                        st.session_state[f"fecha_input_{i}"] = fecha_actual_hoy
+
+    # RESETEO SEGURO ANTES DE DIBUJAR LOS WIDGETS
+    if st.session_state.get("limpiar_pendiente", False):
+        solicitar_limpieza()
         st.session_state["limpiar_pendiente"] = False
 
     LISTA_RESPONSABLES = ["", "Carlos", "Victor", "Guille", "Lujan", "Sebastian"]
 
-    if "borrador_cargado" not in st.session_state:
-        borrador = localS.getItem("borrador_golomaster")
-        if borrador:
-            try:
-                datos_recuperados = json.loads(borrador) if isinstance(borrador, str) else borrador
-                for k, v in datos_recuperados.items():
-                    if k == "fecha_op":
-                        continue
-                    elif "fecha" in k and isinstance(v, str):
-                        try:
-                            st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
-                        except Exception:
-                            st.session_state[k] = v
-                    else:
-                        st.session_state[k] = v
-                st.toast("🛡️ **Borrador de seguridad recuperado.**", icon="💾")
-            except Exception:
-                pass
-        st.session_state["borrador_cargado"] = True
+    # ==============================================================================
+    # 📌 SECCIÓN DE GESTIÓN DE OPs ABIERTAS EN BORRADOR
+    # ==============================================================================
+    ops_abiertas = list(st.session_state["borradores_ops"].keys())
+    
+    if ops_abiertas:
+        st.info("📂 **OPs abiertas en curso sin cerrar:** Utiliza el selector para pausar y cambiar entre órdenes.")
+        col_b1, col_b2 = st.columns([3, 1])
+        with col_b1:
+            op_seleccionada_borrador = st.selectbox(
+                "Seleccionar OP Abierta para reanudar:",
+                options=["-- Seleccionar OP Abierta --"] + ops_abiertas,
+                key="select_op_borrador"
+            )
+        with col_b2:
+            st.write("")
+            st.write("")
+            if st.button("📂 Reanudar OP", type="primary", use_container_width=True):
+                if op_seleccionada_borrador != "-- Seleccionar OP Abierta --":
+                    st.session_state["op_a_cargar"] = op_seleccionada_borrador
+                    st.rerun()
 
     col1, col2, col3 = st.columns(3)
 
@@ -518,25 +558,46 @@ if st.session_state["modulo_activo"] == "Producción":
     op_bloqueada = False
     if num_op != "":
         if op_existe(num_op):
-            st.error(f"⛔ LA OP N° '{num_op}' YA FUE CERRADA ANTERIORMENTE. NO SE PUEDE REUTILIZAR ESTE NÚMERO.")
+            st.error(f"⛔ LA OP N° '{num_op}' YA FUE CERRADA ANTERIORMENTE EN GOOGLE SHEETS. NO SE PUEDE REUTILIZAR ESTE NÚMERO.")
             op_bloqueada = True
 
     encabezado_completo = (num_op != "") and (cliente != "") and (producto != "") and (cant_total > 0)
 
     st.markdown("---")
 
-    col_btn1, col_btn2, _ = st.columns([1.5, 2.0, 3.0])
+    col_btn1, col_btn2, col_btn3 = st.columns([1.8, 2.2, 2.0])
 
     with col_btn1:
-        if st.button("🧹 Limpiar Formulario", type="secondary"):
+        if st.button("🧹 Limpiar y Nueva OP desde Cero", type="secondary"):
             st.session_state["limpiar_pendiente"] = True
-            try:
-                localS.deleteItem("borrador_golomaster")
-            except Exception:
-                pass
             st.rerun()
 
     with col_btn2:
+        if st.button("⏸️ Pausar y Guardar Borrador", type="secondary", disabled=num_op == ""):
+            borrador_item = {
+                "num_op": num_op,
+                "cant_total": cant_total,
+                "cliente_select_prod": cliente,
+                "producto_select_prod": producto,
+                "fecha_op": fecha_op.isoformat() if isinstance(fecha_op, date) else str(fecha_op)
+            }
+            for i in range(10):
+                borrador_item[f"turno_{i}"] = st.session_state.get(f"turno_{i}", "")
+                borrador_item[f"resp_{i}"] = st.session_state.get(f"resp_{i}", "")
+                borrador_item[f"lote_{i}"] = st.session_state.get(f"lote_{i}", "")
+                borrador_item[f"mermas_{i}"] = st.session_state.get(f"mermas_{i}", 0.000)
+                borrador_item[f"scrap_{i}"] = st.session_state.get(f"scrap_{i}", 0.000)
+                borrador_item[f"cant_{i}"] = st.session_state.get(f"cant_{i}", 0)
+                
+                f_input = st.session_state.get(f"fecha_input_{i}", fecha_op)
+                borrador_item[f"fecha_input_{i}"] = f_input.isoformat() if isinstance(f_input, date) else str(f_input)
+
+            st.session_state["borradores_ops"][num_op] = borrador_item
+            st.session_state["limpiar_pendiente"] = True
+            st.toast(f"⏸️ **OP N° {num_op} pausada y guardada en borrador.** Puedes continuar con otra.", icon="💾")
+            st.rerun()
+
+    with col_btn3:
         mostrar_etiqueta = st.button("🏷️ Generar Etiqueta ÚLTIMO Parcial", type="secondary", disabled=not encabezado_completo or op_bloqueada)
 
     def actualizar_fecha_fila(indice, fecha_base_op):
@@ -643,28 +704,27 @@ if st.session_state["modulo_activo"] == "Producción":
             "Cantidad": cant
         })
 
-    datos_borrador = {
-        "num_op": num_op,
-        "cant_total": cant_total,
-        "cliente_select_prod": cliente,
-        "producto_select_prod": producto
-    }
+    # AUTO-GUARDADO DE BORRADOR POR NÚMERO DE OP
+    if num_op != "":
+        auto_borrador = {
+            "num_op": num_op,
+            "cant_total": cant_total,
+            "cliente_select_prod": cliente,
+            "producto_select_prod": producto,
+            "fecha_op": fecha_op.isoformat() if isinstance(fecha_op, date) else str(fecha_op)
+        }
+        for i in range(10):
+            auto_borrador[f"turno_{i}"] = st.session_state.get(f"turno_{i}", "")
+            auto_borrador[f"resp_{i}"] = st.session_state.get(f"resp_{i}", "")
+            auto_borrador[f"lote_{i}"] = st.session_state.get(f"lote_{i}", "")
+            auto_borrador[f"mermas_{i}"] = st.session_state.get(f"mermas_{i}", 0.000)
+            auto_borrador[f"scrap_{i}"] = st.session_state.get(f"scrap_{i}", 0.000)
+            auto_borrador[f"cant_{i}"] = st.session_state.get(f"cant_{i}", 0)
+            
+            f_input = st.session_state.get(f"fecha_input_{i}", fecha_op)
+            auto_borrador[f"fecha_input_{i}"] = f_input.isoformat() if isinstance(f_input, date) else str(f_input)
 
-    for i in range(10):
-        datos_borrador[f"turno_{i}"] = st.session_state.get(f"turno_{i}", "")
-        datos_borrador[f"resp_{i}"] = st.session_state.get(f"resp_{i}", "")
-        datos_borrador[f"lote_{i}"] = st.session_state.get(f"lote_{i}", "")
-        datos_borrador[f"mermas_{i}"] = st.session_state.get(f"mermas_{i}", 0.000)
-        datos_borrador[f"scrap_{i}"] = st.session_state.get(f"scrap_{i}", 0.000)
-        datos_borrador[f"cant_{i}"] = st.session_state.get(f"cant_{i}", 0)
-        
-        f_input = st.session_state.get(f"fecha_input_{i}", fecha_op)
-        datos_borrador[f"fecha_input_{i}"] = f_input.isoformat() if isinstance(f_input, date) else str(f_input)
-
-    try:
-        localS.setItem("borrador_golomaster", json.dumps(datos_borrador))
-    except Exception:
-        pass
+        st.session_state["borradores_ops"][num_op] = auto_borrador
 
     if mostrar_etiqueta:
         ultimos_validos = [p for p in parciales_cargados if p["Turno"] != ""]
@@ -797,13 +857,12 @@ if st.session_state["modulo_activo"] == "Producción":
             }
             exito = guardar_op_en_sheets(datos_encabezado, parciales_cargados)
             if exito:
-                # Marcamos la bandera de reseteo para la próxima recarga
+                # Al cerrarse definitivamente, eliminamos la OP de borradores
+                if num_op in st.session_state["borradores_ops"]:
+                    del st.session_state["borradores_ops"][num_op]
+                
                 st.session_state["limpiar_pendiente"] = True
-                try:
-                    localS.deleteItem("borrador_golomaster")
-                except Exception:
-                    pass
-                st.success(f"✅ ¡OP N° {num_op} registrada en la pestaña 'BD PRODU' correctamente!")
+                st.success(f"✅ ¡OP N° {num_op} registrada en la pestaña 'BD PRODU' y cerrada correctamente!")
                 st.rerun()
             else:
                 st.error("❌ Ocurrió un error al guardar en Google Sheets. Verifique la conexión.")
