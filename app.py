@@ -81,7 +81,7 @@ def cargar_historial_planning():
         return pd.DataFrame()
 
 # ==============================================================================
-# --- FUNCIONES DE GUARDADO RESTRUCTURADAS ---
+# --- FUNCIONES DE GUARDADO OPTIMIZADAS Y TOLERANTES ---
 # ==============================================================================
 def guardar_op_en_sheets(datos_op, filas_parciales):
     """Envía la información formateada para la pestaña BD PRODU (A -> Q)"""
@@ -138,9 +138,15 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
     }
 
     try:
-        response = requests.post(WEBAPP_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"}, allow_redirects=True)
+        response = requests.post(
+            WEBAPP_URL, 
+            data=json.dumps(payload), 
+            headers={"Content-Type": "application/json"}, 
+            timeout=15
+        )
         return response.status_code in [200, 302] and "Error" not in response.text
-    except Exception:
+    except Exception as e:
+        st.error(f"Detalle técnico de error al conectar con Apps Script: {e}")
         return False
 
 def guardar_planning_en_sheets_multiples(registros_planning):
@@ -151,9 +157,15 @@ def guardar_planning_en_sheets_multiples(registros_planning):
     }
 
     try:
-        response = requests.post(WEBAPP_URL, data=json.dumps(payload), headers={"Content-Type": "application/json"}, allow_redirects=True)
+        response = requests.post(
+            WEBAPP_URL, 
+            data=json.dumps(payload), 
+            headers={"Content-Type": "application/json"}, 
+            timeout=15
+        )
         return response.status_code in [200, 302] and "Error" not in response.text
-    except Exception:
+    except Exception as e:
+        st.error(f"Detalle técnico de error al conectar con Apps Script: {e}")
         return False
 
 # --- FUNCIONES DE AUXILIO E INTERFAZ ---
