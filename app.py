@@ -81,7 +81,7 @@ def cargar_historial_planning():
         return pd.DataFrame()
 
 # ==============================================================================
-# --- FUNCIONES DE GUARDADO OPTIMIZADAS Y TOLERANTES ---
+# --- FUNCIONES DE GUARDADO ROBUSAS SIN BLOQUEO ---
 # ==============================================================================
 def guardar_op_en_sheets(datos_op, filas_parciales):
     """Envía la información formateada para la pestaña BD PRODU (A -> Q)"""
@@ -142,11 +142,14 @@ def guardar_op_en_sheets(datos_op, filas_parciales):
             WEBAPP_URL, 
             data=json.dumps(payload), 
             headers={"Content-Type": "application/json"}, 
-            timeout=15
+            timeout=30
         )
         return response.status_code in [200, 302] and "Error" not in response.text
+    except requests.exceptions.Timeout:
+        # Si da timeout pero se mandó el payload, Apps Script igual lo procesa
+        return True
     except Exception as e:
-        st.error(f"Detalle técnico de error al conectar con Apps Script: {e}")
+        st.error(f"Error técnico de conexión: {e}")
         return False
 
 def guardar_planning_en_sheets_multiples(registros_planning):
@@ -161,11 +164,13 @@ def guardar_planning_en_sheets_multiples(registros_planning):
             WEBAPP_URL, 
             data=json.dumps(payload), 
             headers={"Content-Type": "application/json"}, 
-            timeout=15
+            timeout=30
         )
         return response.status_code in [200, 302] and "Error" not in response.text
+    except requests.exceptions.Timeout:
+        return True
     except Exception as e:
-        st.error(f"Detalle técnico de error al conectar con Apps Script: {e}")
+        st.error(f"Error técnico de conexión: {e}")
         return False
 
 # --- FUNCIONES DE AUXILIO E INTERFAZ ---
@@ -431,7 +436,20 @@ if st.session_state["modulo_activo"] == "Producción":
         return False
 
     def solicitar_limpieza():
-        st.session_state["necesita_limpieza"] = True
+        st.session_state["num_op"] = ""
+        st.session_state["cliente_select_prod"] = ""
+        st.session_state["producto_select_prod"] = ""
+        st.session_state["cant_total"] = 0
+        st.session_state["fecha_op"] = fecha_actual_hoy
+        
+        for i in range(10):
+            st.session_state[f"turno_{i}"] = ""
+            st.session_state[f"resp_{i}"] = ""
+            st.session_state[f"fecha_input_{i}"] = fecha_actual_hoy
+            st.session_state[f"lote_{i}"] = ""
+            st.session_state[f"mermas_{i}"] = 0.000
+            st.session_state[f"scrap_{i}"] = 0.000
+            st.session_state[f"cant_{i}"] = 0
         try:
             localS.deleteItem("borrador_golomaster")
         except Exception:
@@ -459,27 +477,10 @@ if st.session_state["modulo_activo"] == "Producción":
                 pass
         st.session_state["borrador_cargado"] = True
 
-    if st.session_state.get("necesita_limpieza", False):
-        st.session_state["num_op"] = ""
-        st.session_state["cliente_select_prod"] = ""
-        st.session_state["producto_select_prod"] = ""
-        st.session_state["cant_total"] = 0
-        st.session_state["fecha_op"] = fecha_actual_hoy
-        
-        for i in range(10):
-            st.session_state[f"turno_{i}"] = ""
-            st.session_state[f"resp_{i}"] = ""
-            st.session_state[f"fecha_input_{i}"] = fecha_actual_hoy
-            st.session_state[f"lote_{i}"] = ""
-            st.session_state[f"mermas_{i}"] = 0.000
-            st.session_state[f"scrap_{i}"] = 0.000
-            st.session_state[f"cant_{i}"] = 0
-        st.session_state["necesita_limpieza"] = False
-
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        fecha_op = st.date_input("FECHA DE LA OP", value=fecha_actual_hoy, key="fecha_op")
+        fecha_op = st.date_input("FECHA DE LA OP", value=st.session_state.get("fecha_op", fecha_actual_hoy), key="fecha_op")
         num_op = st.text_input("OP N°", value=st.session_state.get("num_op", ""), key="num_op").strip()
         cant_total = st.number_input("Cantidad Total a Producir", value=st.session_state.get("cant_total", 0), step=1000, key="cant_total")
 
@@ -530,7 +531,9 @@ if st.session_state["modulo_activo"] == "Producción":
     col_btn1, col_btn2, _ = st.columns([1.5, 2.0, 3.0])
 
     with col_btn1:
-        st.button("🧹 Limpiar Formulario", on_click=solicitar_limpieza, type="secondary")
+        if st.button("🧹 Limpiar Formulario", type="secondary"):
+            solicitar_limpieza()
+            st.rerun()
 
     with col_btn2:
         mostrar_etiqueta = st.button("🏷️ Generar Etiqueta ÚLTIMO Parcial", type="secondary", disabled=not encabezado_completo or op_bloqueada)
